@@ -16,20 +16,20 @@ void setup() {
    Serial.begin(115200);
 
    pinMode(LED_BUILTIN, OUTPUT);
+   digitalWrite(LED_BUILTIN, HIGH);
+//#define DEBUG
+#ifdef DEBUG
+   while (!Serial) {}
+   Serial.print("ESP8266 Board MAC Address:  ");
+   Serial.println(WiFi.macAddress());
+#endif
+
    WiFi.mode(WIFI_STA);
 
    if (esp_now_init() != 0) {
       Serial.println("Error initializing ESP-NOW");
      return;
    }
-
-//#define DEBUG
-#ifdef DEBUG
-   delay(1000);
-   Serial.print("ESP8266 Board MAC Address:  ");
-   Serial.println(WiFi.macAddress());
-#endif
-
    esp_now_set_self_role(ESP_NOW_ROLE_SLAVE);
    esp_now_register_recv_cb(OnDataRecv);
 }

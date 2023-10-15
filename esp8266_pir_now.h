@@ -29,4 +29,9 @@ static inline void print_PIR_msg(struct_PIR_msg *msg) {
 
 }
 
+//  ugh this will require a kludge
+//  the slave's channel is set by the WiFi router...
+//  'cept sometimes we no has router...  so wtf.
+#define WIFI_CHANNEL 1
+
 #endif
