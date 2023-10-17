@@ -8,6 +8,8 @@
 uint8_t masterAddr[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 #endif
 
+#define PIR_PIN D3
+
 struct_PIR_msg PIR_msg;
 
 boolean gotosleep;
@@ -32,17 +34,26 @@ void OnDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
    gotosleep = true;
 }
 
-void setup() {
-   //WiFi.persistent(false);
-   Serial.begin(115200);
-   //delay(1000);
-   Serial.println();
-   gotosleep = false;
+void deepSleep() {
+      ESP.deepSleep(0);  //  man this is some unreliable shit
+      ESP.deepSleep(ESP.deepSleepMax());
+}
 
+void setup() {
+   Serial.begin(115200);
+
+   pinMode(PIR_PIN, INPUT);
+   if (!digitalRead(PIR_PIN)) {
+      deepSleep();
+   }
+
+   int adcValue = analogRead(A0);
+
+   gotosleep = false;
+   pinMode(D0, WAKEUP_PULLUP);
    pinMode(LED_BUILTIN, OUTPUT);
    digitalWrite(LED_BUILTIN, LOW);
    WiFi.mode(WIFI_STA);
-   //WiFi.disconnect();
 
    if (esp_now_init() != 0) {
       Serial.println("Error initializing ESP-NOW");
@@ -61,8 +72,11 @@ void setup() {
    esp_now_add_peer(masterAddr, ESP_NOW_ROLE_SLAVE, WIFI_CHANNEL, NULL, 0);
 
    // Set values to send
-   PIR_msg.id = 0;
-   PIR_msg.voltage = 10000;		//  bogus value
+   PIR_msg.id = 1;
+
+   uint32_t voltage = adcValue * 355 / 1024;  //  100k resistor divider with (220k + 43k) and some fudge
+
+   PIR_msg.voltage = (uint16_t) (voltage);
    PIR_msg.failberts = data->fails;
    PIR_msg.temperature = 10000;		//  bogus value
    PIR_msg.humidity = 1100;		//  bogus value
@@ -77,8 +91,7 @@ void loop() {
       rtcMemory.save();
       //  reschedule a wakeup to try again if failed
       //  doesn't seem to reliably put the device to sleep...
-      ESP.deepSleep(0);  //  man this is some unreliable shit
-      ESP.deepSleep(ESP.deepSleepMax());
+      deepSleep();
    }
    delay(100);
 }
