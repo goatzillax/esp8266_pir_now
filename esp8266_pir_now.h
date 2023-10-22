@@ -10,28 +10,29 @@ typedef struct {
 } struct_PIR_msg;
 
 
-static inline void print_PIR_msg(struct_PIR_msg *msg) {
+static inline void print_PIR_msg(struct_PIR_msg *msg, String prefix) {
    //  i hate cpp so much
-   Serial.print("ID: ");
+
+   Serial.print(prefix);
+   Serial.print(" ID: ");
    Serial.println(msg->id);
 
-   Serial.print("Voltage: ");
+   Serial.print(prefix);
+   Serial.print(" Voltage: ");
    Serial.println((float)msg->voltage / 100);
 
-   Serial.print("Failberts: ");
+   Serial.print(prefix);
+   Serial.print(" Failberts: ");
    Serial.println(msg->failberts);
 
-   Serial.print("Temperature: ");
+   Serial.print(prefix);
+   Serial.print(" Temperature: ");
    Serial.println((float) msg->temperature / 100);
 
-   Serial.print("humidity: ");
+   Serial.print(prefix);
+   Serial.print(" humidity: ");
    Serial.println((float) msg->humidity / 10);
 
 }
-
-//  ugh this will require a kludge
-//  the slave's channel is set by the WiFi router...
-//  'cept sometimes we no has router...  so wtf.
-#define WIFI_CHANNEL 1
 
 #endif
