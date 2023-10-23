@@ -1,18 +1,25 @@
+#include <CircularBuffer.h>
 #include <ESP8266WiFi.h>
 #include <espnow.h>
-#include <CircularBuffer.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 #include "esp8266_pir_now.h"
 #include "sekritz.h"
 
 struct_PIR_msg PIR_msg;
 
 typedef struct {
-   uint32_t src;  //  last 3 bytes of MAC
-   uint32_t timestamp;  //  seconds since epoch.  pretty sure I don't need more that second resolution
+   uint32_t src;	//  last 3 bytes of MAC
+   uint32_t timestamp;	//  seconds since epoch.  pretty sure I don't need more that second resolution
    struct_PIR_msg msg;
 } struct_log_entry;
 
 CircularBuffer<struct_log_entry,128> history;
+
+#ifdef INFRA
+WiFiUDP		ntpUDP;
+NTPClient	timeClient(ntpUDP);
+#endif
 
 String mactostr(uint8_t *mac) {
    //  I LOVE CPP
@@ -63,7 +70,13 @@ void setup() {
    Serial.println(WiFi.macAddress());
 #endif
 
+   WiFi.disconnect();
+   WiFi.persistent(false);
+   WiFi.setSleepMode(WIFI_NONE_SLEEP);  // fucking clown shoes I swear
    WiFi.mode(WIFI_STA);
+#ifdef INFRA
+   WiFi.begin(WIFI_SSID, WIFI_PSK);
+#endif
 
    if (esp_now_init() != 0) {
       Serial.println("Error initializing ESP-NOW");
@@ -71,8 +84,17 @@ void setup() {
    }
    esp_now_set_self_role(ESP_NOW_ROLE_SLAVE);
    esp_now_register_recv_cb(OnDataRecv);
+#ifdef INFRA
+   //  probably want to wait for WL_CONNECTED
+   timeClient.begin();
+#endif
 }
 
 void loop() {
-   delay(100);  
+#ifdef INFRA
+   timeClient.update();
+   Serial.println(timeClient.getFormattedTime());
+#endif
+
+   delay(10000);
 }
