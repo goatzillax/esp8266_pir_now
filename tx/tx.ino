@@ -4,7 +4,7 @@
 #include "esp8266_pir_now.h"
 #include "sekritz.h"
 
-//  ESPRESSIF CORE IS FUCKING BUGGED SO MOST OF THIS CODE MEANS DICK ALL BECAUSE ESP-NOW SDK IS LOCKED TO CHANNEL 1 ON AN 8266.  I wrote all this code for literally nothing.  THANKS ESPRESSIF.
+//  ESPRESSIF CORE IS STILL DICKED UP BUT YOU CAN FORCE THE CHANNEL WITH WIFI_SET_CHANNEL()
 
 #ifndef MASTER_ADDRESS
 uint8_t masterAddr[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
@@ -91,6 +91,7 @@ void setup() {
    if (esp_now_add_peer(masterAddr, ESP_NOW_ROLE_SLAVE, wifi_search_chan, NULL, 0)) {
       Serial.println("error adding peer");
    }
+   wifi_set_channel(wifi_search_chan);
 
 }
 
@@ -111,6 +112,7 @@ void loop() {
                if (wifi_search_chan > 11) {
                   wifi_search_chan = 1;
                } //  halt but do not catch fire?
+               wifi_set_channel(wifi_search_chan);
                if (esp_now_add_peer(masterAddr, ESP_NOW_ROLE_SLAVE, wifi_search_chan, NULL, 0)) {
                   Serial.println("error adding peer");
                }
