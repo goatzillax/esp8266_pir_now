@@ -107,7 +107,7 @@ void loop() {
                if (esp_now_del_peer(masterAddr)) {
                   Serial.println("error deleting peer");
                }
-               //wifi_search_chan += 1;
+               wifi_search_chan += 1;
                if (wifi_search_chan > 11) {
                   wifi_search_chan = 1;
                } //  halt but do not catch fire?
