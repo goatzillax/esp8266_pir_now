@@ -3,16 +3,21 @@
 #include <espnow.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <LittleFS.h>
 #include "esp8266_pir_now.h"
 #include "sekritz.h"
 
-struct_PIR_msg PIR_msg;
+//struct_PIR_msg PIR_msg;
 
 typedef struct {
    uint32_t src;	//  last 3 bytes of MAC
    uint32_t timestamp;	//  seconds since epoch.  pretty sure I don't need more that second resolution
    struct_PIR_msg msg;
 } struct_log_entry;
+
+struct_log_entry log_entry;
 
 CircularBuffer<struct_log_entry,128> history;
 
@@ -21,17 +26,34 @@ CircularBuffer<struct_log_entry,128> history;
 WiFiUDP		ntpUDP;
 NTPClient	timeClient(ntpUDP);
 
+AsyncWebServer webserver(80);
+
 void infra_setup() {
    WiFi.begin(WIFI_SSID, WIFI_PSK);
+
+   // Begin LittleFS
+   if (!LittleFS.begin())
+   {
+      Serial.println("error initializing littlefs");
+      return;  //  restart?
+   }
+
    while (WiFi.status() != WL_CONNECTED) {
       delay(100);
    }
+   
+   webserver.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+   webserver.begin();
+
+   timeClient.setTimeOffset(-5*3600);  //  meh...  consider making this the client's problem
    timeClient.begin();  //  dis feels optional but whatevs
 }
 
 void infra_loop() {
    timeClient.update();
-   Serial.println(timeClient.getFormattedTime());
+   if(timeClient.isTimeSet()) {
+      Serial.println(timeClient.getFormattedTime());
+   }
 }
 #else
 void infra_setup() {
@@ -48,12 +70,8 @@ String mactostr(uint8_t *mac) {
    return String(macStr);
 }
 
-String mactoname(uint8_t *mac) {
-   //  prtty much just care about last 3 bytes
-   uint32_t i=mac[5] + (mac[4]<<8) + (mac[3]<< 16);
-
+String longtoname(uint32_t *longmac) {
    //  define ur own maczzzzz
-
    switch(i) {
       case PIR00:
          return String("PIR00");
@@ -62,18 +80,29 @@ String mactoname(uint8_t *mac) {
          return String("PIR01");
          break;
       default:
-         return mactostr(mac);
+         return String(*longmac, HEX);
          break;
    }
 }
 
+String mactoname(uint8_t *mac) {
+   //  prtty much just care about last 3 bytes
+   uint32_t i=mac[5] + (mac[4]<<8) + (mac[3]<< 16);
+   return longtoname(i);
+}
+
 void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
    digitalWrite(LED_BUILTIN, LOW);
-   if (len != sizeof(PIR_msg)) {
+   if (len != sizeof(log_entry.msg)) {
       return;  //  or halt but DO NOT CATCH FIRE
    }  //  change this if payloads start to vary
-   memcpy(&PIR_msg, incomingData, sizeof(PIR_msg));
-   print_PIR_msg(&PIR_msg, mactoname(mac));
+   memcpy(&log_entry.msg, incomingData, sizeof(log_entry.msg));
+#ifdef INFRA
+   log_entry.src = mac[5] + (mac[4]<<8) + (mac[3]<< 16);
+   log_entry.timestamp = timeClient.getEpochTime();
+   history.push(log_entry);   
+#endif
+   print_PIR_msg(&log_entry.msg, mactoname(mac));
    digitalWrite(LED_BUILTIN, HIGH);
 }
 
