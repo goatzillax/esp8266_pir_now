@@ -3,10 +3,14 @@
 #include <espnow.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <LittleFS.h>
 #include "esp8266_pir_now.h"
 #include "sekritz.h"
 
-struct_PIR_msg PIR_msg;
+//struct_PIR_msg PIR_msg;
+//  TODO:  beeper
 
 typedef struct {
    uint32_t src;	//  last 3 bytes of MAC
@@ -14,12 +18,9 @@ typedef struct {
    struct_PIR_msg msg;
 } struct_log_entry;
 
-CircularBuffer<struct_log_entry,128> history;
+struct_log_entry log_entry;
 
-#ifdef INFRA
-WiFiUDP		ntpUDP;
-NTPClient	timeClient(ntpUDP);
-#endif
+CircularBuffer<struct_log_entry,128> history;
 
 String mactostr(uint8_t *mac) {
    //  I LOVE CPP
@@ -28,13 +29,9 @@ String mactostr(uint8_t *mac) {
    return String(macStr);
 }
 
-String mactoname(uint8_t *mac) {
-   //  prtty much just care about last 3 bytes
-   uint32_t i=mac[5] + (mac[4]<<8) + (mac[3]<< 16);
-
+String longtoname(uint32_t longmac) {
    //  define ur own maczzzzz
-
-   switch(i) {
+   switch(longmac) {
       case PIR00:
          return String("PIR00");
          break;
@@ -42,18 +39,132 @@ String mactoname(uint8_t *mac) {
          return String("PIR01");
          break;
       default:
-         return mactostr(mac);
+         return String(longmac, HEX);
          break;
    }
 }
 
+String mactoname(uint8_t *mac) {
+   //  prtty much just care about last 3 bytes
+   uint32_t i=mac[5] + (mac[4]<<8) + (mac[3]<< 16);
+   return longtoname(i);
+}
+
+#define INFRA
+#ifdef INFRA
+WiFiUDP		ntpUDP;
+NTPClient	timeClient(ntpUDP);
+
+AsyncWebServer webserver(80);
+
+// Taken from forked NTP client https://github.com/taranais/NTPClient/blob/master/NTPClient.cpp
+String getFormattedTime(unsigned long secs) {
+  unsigned long rawTime = secs;
+  unsigned long hours = (rawTime % 86400L) / 3600;
+  String hoursStr = hours < 10 ? "0" + String(hours) : String(hours);
+
+  unsigned long minutes = (rawTime % 3600) / 60;
+  String minuteStr = minutes < 10 ? "0" + String(minutes) : String(minutes);
+
+  unsigned long seconds = rawTime % 60;
+  String secondStr = seconds < 10 ? "0" + String(seconds) : String(seconds);
+
+  return hoursStr + minuteStr + secondStr;
+}
+
+// Based on https://github.com/PaulStoffregen/Time/blob/master/Time.cpp
+// currently assumes UTC timezone, instead of using this->_timeOffset
+#define LEAP_YEAR(Y)     ( (Y>0) && !(Y%4) && ( (Y%100) || !(Y%400) ) )
+String getFormattedDateTime(unsigned long secs) {
+  unsigned long rawTime = secs / 86400L;  // in days
+  unsigned long days = 0, year = 1970;
+  uint8_t month;
+  static const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
+
+  while((days += (LEAP_YEAR(year) ? 366 : 365)) <= rawTime)
+    year++;
+  rawTime -= days - (LEAP_YEAR(year) ? 366 : 365); // now it is days in this year, starting at 0
+  days=0;
+  for (month=0; month<12; month++) {
+    uint8_t monthLength;
+    if (month==1) { // february
+      monthLength = LEAP_YEAR(year) ? 29 : 28;
+    } else {
+      monthLength = monthDays[month];
+    }
+    if (rawTime < monthLength) break;
+    rawTime -= monthLength;
+  }
+  String monthStr = ++month < 10 ? "0" + String(month) : String(month); // jan is month 1
+  String dayStr = ++rawTime < 10 ? "0" + String(rawTime) : String(rawTime); // day of month
+  return String(year) + monthStr + dayStr + "T" + getFormattedTime(secs) + "Z";
+}
+
+void infra_setup() {
+   WiFi.begin(WIFI_SSID, WIFI_PSK);
+
+   // Begin LittleFS
+   if (!LittleFS.begin())
+   {
+      Serial.println("error initializing littlefs");
+      return;  //  restart?
+   }
+
+   while (WiFi.status() != WL_CONNECTED) {
+      delay(100);
+   }
+   Serial.println(WiFi.localIP());
+
+   webserver.on("/history", HTTP_GET, [](AsyncWebServerRequest *request) {
+      AsyncResponseStream *response = request->beginResponseStream("text/plain");
+      int i;
+      for (i=history.size()-1; i>=0; i--) {
+         response->print(getFormattedDateTime(history[i].timestamp));
+         response->print(" ");
+         response->print(longtoname(history[i].src));
+         response->print(" ");
+         response->print(history[i].msg.id);
+         response->print(" ");
+         response->print(String((float) history[i].msg.voltage/100));
+         response->print("v ");
+         response->print(history[i].msg.failberts);
+         response->print("\n");
+      }
+      request->send(response);
+   });
+   webserver.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+   webserver.begin();
+
+   //timeClient.setTimeOffset(-5*3600);  //  meh...  consider making this the client's problem
+   timeClient.begin();  //  dis feels optional but whatevs
+}
+
+void infra_loop() {
+   timeClient.update();
+//   if(timeClient.isTimeSet()) {
+//      Serial.println(timeClient.getFormattedTime());
+//   }
+}
+#else
+void infra_setup() {
+}
+
+void infra_loop() {
+}
+#endif
+
 void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
    digitalWrite(LED_BUILTIN, LOW);
-   if (len != sizeof(PIR_msg)) {
+   if (len != sizeof(log_entry.msg)) {
       return;  //  or halt but DO NOT CATCH FIRE
    }  //  change this if payloads start to vary
-   memcpy(&PIR_msg, incomingData, sizeof(PIR_msg));
-   print_PIR_msg(&PIR_msg, mactoname(mac));
+   memcpy(&log_entry.msg, incomingData, sizeof(log_entry.msg));
+#ifdef INFRA
+   log_entry.src = mac[5] + (mac[4]<<8) + (mac[3]<< 16);
+   log_entry.timestamp = timeClient.getEpochTime();
+   history.push(log_entry);   
+#endif
+   print_PIR_msg(&log_entry.msg, mactoname(mac));
    digitalWrite(LED_BUILTIN, HIGH);
 }
 
@@ -62,6 +173,7 @@ void setup() {
 
    pinMode(LED_BUILTIN, OUTPUT);
    digitalWrite(LED_BUILTIN, HIGH);
+
 #define DEBUG
 #ifdef DEBUG
    while (!Serial) {}
@@ -74,9 +186,8 @@ void setup() {
    WiFi.persistent(false);
    WiFi.setSleepMode(WIFI_NONE_SLEEP);  // fucking clown shoes I swear
    WiFi.mode(WIFI_STA);
-#ifdef INFRA
-   WiFi.begin(WIFI_SSID, WIFI_PSK);
-#endif
+
+   infra_setup();
 
    if (esp_now_init() != 0) {
       Serial.println("Error initializing ESP-NOW");
@@ -84,17 +195,9 @@ void setup() {
    }
    esp_now_set_self_role(ESP_NOW_ROLE_SLAVE);
    esp_now_register_recv_cb(OnDataRecv);
-#ifdef INFRA
-   //  probably want to wait for WL_CONNECTED
-   timeClient.begin();
-#endif
 }
 
 void loop() {
-#ifdef INFRA
-   timeClient.update();
-   Serial.println(timeClient.getFormattedTime());
-#endif
-
+   infra_loop();
    delay(10000);
 }
