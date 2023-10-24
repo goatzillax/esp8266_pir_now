@@ -16,9 +16,29 @@ typedef struct {
 
 CircularBuffer<struct_log_entry,128> history;
 
+#define INFRA
 #ifdef INFRA
 WiFiUDP		ntpUDP;
 NTPClient	timeClient(ntpUDP);
+
+void infra_setup() {
+   WiFi.begin(WIFI_SSID, WIFI_PSK);
+   while (WiFi.status() != WL_CONNECTED) {
+      delay(100);
+   }
+   timeClient.begin();  //  dis feels optional but whatevs
+}
+
+void infra_loop() {
+   timeClient.update();
+   Serial.println(timeClient.getFormattedTime());
+}
+#else
+void infra_setup() {
+}
+
+void infra_loop() {
+}
 #endif
 
 String mactostr(uint8_t *mac) {
@@ -62,6 +82,7 @@ void setup() {
 
    pinMode(LED_BUILTIN, OUTPUT);
    digitalWrite(LED_BUILTIN, HIGH);
+
 #define DEBUG
 #ifdef DEBUG
    while (!Serial) {}
@@ -74,9 +95,8 @@ void setup() {
    WiFi.persistent(false);
    WiFi.setSleepMode(WIFI_NONE_SLEEP);  // fucking clown shoes I swear
    WiFi.mode(WIFI_STA);
-#ifdef INFRA
-   WiFi.begin(WIFI_SSID, WIFI_PSK);
-#endif
+
+   infra_setup();
 
    if (esp_now_init() != 0) {
       Serial.println("Error initializing ESP-NOW");
@@ -84,17 +104,9 @@ void setup() {
    }
    esp_now_set_self_role(ESP_NOW_ROLE_SLAVE);
    esp_now_register_recv_cb(OnDataRecv);
-#ifdef INFRA
-   //  probably want to wait for WL_CONNECTED
-   timeClient.begin();
-#endif
 }
 
 void loop() {
-#ifdef INFRA
-   timeClient.update();
-   Serial.println(timeClient.getFormattedTime());
-#endif
-
-   delay(10000);
+   infra_loop();
+   delay(1000);
 }
