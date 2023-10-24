@@ -41,7 +41,7 @@ void infra_setup() {
    while (WiFi.status() != WL_CONNECTED) {
       delay(100);
    }
-   
+   Serial.println(WiFi.localIP());
    webserver.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
    webserver.begin();
 
@@ -51,9 +51,9 @@ void infra_setup() {
 
 void infra_loop() {
    timeClient.update();
-   if(timeClient.isTimeSet()) {
-      Serial.println(timeClient.getFormattedTime());
-   }
+//   if(timeClient.isTimeSet()) {
+//      Serial.println(timeClient.getFormattedTime());
+//   }
 }
 #else
 void infra_setup() {
@@ -70,9 +70,9 @@ String mactostr(uint8_t *mac) {
    return String(macStr);
 }
 
-String longtoname(uint32_t *longmac) {
+String longtoname(uint32_t longmac) {
    //  define ur own maczzzzz
-   switch(i) {
+   switch(longmac) {
       case PIR00:
          return String("PIR00");
          break;
@@ -80,7 +80,7 @@ String longtoname(uint32_t *longmac) {
          return String("PIR01");
          break;
       default:
-         return String(*longmac, HEX);
+         return String(longmac, HEX);
          break;
    }
 }
