@@ -10,6 +10,7 @@
 #include "sekritz.h"
 
 //struct_PIR_msg PIR_msg;
+//  TODO:  beeper
 
 typedef struct {
    uint32_t src;	//  last 3 bytes of MAC
@@ -20,48 +21,6 @@ typedef struct {
 struct_log_entry log_entry;
 
 CircularBuffer<struct_log_entry,128> history;
-
-#define INFRA
-#ifdef INFRA
-WiFiUDP		ntpUDP;
-NTPClient	timeClient(ntpUDP);
-
-AsyncWebServer webserver(80);
-
-void infra_setup() {
-   WiFi.begin(WIFI_SSID, WIFI_PSK);
-
-   // Begin LittleFS
-   if (!LittleFS.begin())
-   {
-      Serial.println("error initializing littlefs");
-      return;  //  restart?
-   }
-
-   while (WiFi.status() != WL_CONNECTED) {
-      delay(100);
-   }
-   Serial.println(WiFi.localIP());
-   webserver.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
-   webserver.begin();
-
-   timeClient.setTimeOffset(-5*3600);  //  meh...  consider making this the client's problem
-   timeClient.begin();  //  dis feels optional but whatevs
-}
-
-void infra_loop() {
-   timeClient.update();
-//   if(timeClient.isTimeSet()) {
-//      Serial.println(timeClient.getFormattedTime());
-//   }
-}
-#else
-void infra_setup() {
-}
-
-void infra_loop() {
-}
-#endif
 
 String mactostr(uint8_t *mac) {
    //  I LOVE CPP
@@ -90,6 +49,62 @@ String mactoname(uint8_t *mac) {
    uint32_t i=mac[5] + (mac[4]<<8) + (mac[3]<< 16);
    return longtoname(i);
 }
+
+#define INFRA
+#ifdef INFRA
+WiFiUDP		ntpUDP;
+NTPClient	timeClient(ntpUDP);
+
+AsyncWebServer webserver(80);
+
+void infra_setup() {
+   WiFi.begin(WIFI_SSID, WIFI_PSK);
+
+   // Begin LittleFS
+   if (!LittleFS.begin())
+   {
+      Serial.println("error initializing littlefs");
+      return;  //  restart?
+   }
+
+   while (WiFi.status() != WL_CONNECTED) {
+      delay(100);
+   }
+   Serial.println(WiFi.localIP());
+
+   webserver.on("/history", HTTP_GET, [](AsyncWebServerRequest *request) {
+      AsyncResponseStream *response = request->beginResponseStream("text/plain");
+      int i;
+      for (i=0; i<history.size(); i++) {
+         response->print(longtoname(history[i].src));
+         response->print(history[i].timestamp);
+         response->print(history[i].msg.id);
+         response->print(history[i].msg.voltage);
+         response->print(history[i].msg.failberts);
+         response->print("\n");  //  cmon yall docs
+      }
+      request->send(response);
+   }
+   webserver.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+   webserver.begin();
+
+   timeClient.setTimeOffset(-5*3600);  //  meh...  consider making this the client's problem
+   timeClient.begin();  //  dis feels optional but whatevs
+}
+
+void infra_loop() {
+   timeClient.update();
+//   if(timeClient.isTimeSet()) {
+//      Serial.println(timeClient.getFormattedTime());
+//   }
+}
+#else
+void infra_setup() {
+}
+
+void infra_loop() {
+}
+#endif
 
 void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
    digitalWrite(LED_BUILTIN, LOW);
