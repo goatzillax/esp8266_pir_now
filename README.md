@@ -10,8 +10,10 @@ Upon first power up, the transmitter will scan available channels until a messag
 
 The chip should then enter deep sleep until woken up by PIR detection.
 
-TODO:  debug retry/timer mechanism.  probably more espressif errata.
-TODO:  rescan after X amount of failbertz
+### TODO
+
+* debug retry/timer mechanism.  probably more espressif errata.
+* rescan after X amount of failbertz
 
 ## Receiver unit
 
@@ -27,9 +29,11 @@ In offline mode:
 
 * halp?
 
-TODO:  needs a beeper.  D4/GPIO2 is the LED which would be prefect butt it can't drive enough current.  so I need to invert the signal to the FET to drive a beeper...
-TODO:  soft AP for offline mode
-TODO:  actual hardware RTC module or someting like a web client to set time
+### TODO
+
+* needs a beeper.  D4/GPIO2 is the LED which would be prefect butt it can't drive enough current.  so I need to invert the signal to the FET to drive a beeper...
+* soft AP for offline mode
+* actual hardware RTC module or someting like a web client to set time
 
 ## Hardware
 
