@@ -202,7 +202,7 @@ void setup() {
    WiFi.disconnect();
    WiFi.persistent(false);
    WiFi.setSleepMode(WIFI_NONE_SLEEP);  // fucking clown shoes I swear
-   WiFi.mode(WIFI_STA);
+   WiFi.mode(WIFI_AP_STA);
 
    infra_setup();
 
