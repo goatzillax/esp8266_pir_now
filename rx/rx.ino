@@ -118,6 +118,7 @@ void infra_setup() {
       if (millis() - wifi_start_time > WIFI_STA_WAIT) {
          break;
       }
+      delay(100);  //  get the feeling this is needed...
    }
    //  schitt or get off the pot time
    if (WiFi.status() == WL_CONNECTED) {
