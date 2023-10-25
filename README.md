@@ -6,6 +6,8 @@ Rework of an older PIR sensor project with updated goals.
 
 The system is intended to support multiple transmitter/sensor units in an 'offline' (non-infrastructure) mode in case of remote usage.  Think:  camping.  Don't want no bears sneaking up on me know what im saying i ain't down with that git away from thar, bear u don't know me like that.
 
+All the transmitters/sensors transmit via ESP-NOW and should be powered by a single LiFePO4 cell wired directly into 3.3v.
+
 Upon first power up, the transmitter will scan available channels until a message is successful and then save that channel to RTC memory.
 
 The chip should then enter deep sleep until woken up by PIR detection.
@@ -109,4 +111,8 @@ Can't figure out how to embed the STL viewer in github markdown.
 
 Viewer doesn't sport binary apparently, nor does it support .gz files.  Neat.  It's nearly the end of 2023, yall.
 
-TODO:  external power input, external reset
+#### TODO
+
+* total weatherproofing and sealing
+* external power input
+* external reset
