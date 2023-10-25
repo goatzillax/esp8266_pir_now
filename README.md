@@ -22,22 +22,24 @@ The chip should then enter deep sleep until woken up by PIR detection.
 
 The receiver unit pretty much has to be running fulltime in order to receive ESP-NOW messages from the sensors.  (i.e. no sleep of any kind, including modem/wifi sleep.)
 
-In infrastructure mode:
-
-* fire up NTPClient
 * record events into a history buffer
 * serve history on a webserver
 
+In infrastructure mode:
+
+* fire up NTPClient
+
 In offline mode:
 
-* halp?
+* use form to set time from client
 
 ### TODO
 
 * needs a beeper.  D4/GPIO2 is the LED which would be prefect butt it can't drive enough current.  so I need to invert the signal to the n-channel FET to drive a beeper...  Quad FET array?
-* offline mode
-  * switch to soft AP after X seconds of infrastructure failure
-  * add hook to webserver to run settime/settimeofday based on request header from web client.
+* How to deal with millis() rollover in offline mode
+* ~~offline mode~~
+  * ~~switch to soft AP after X seconds of infrastructure failure~~
+  * ~~add hook to webserver to run settime/settimeofday based on request header from web client.~~
 
 ## Hardware
 
