@@ -65,7 +65,7 @@ TODO:  wat's the timeout?
 
 ### Reset Circuitry
 
-I need to revisit the docs for reset, but in general on order to reset I think the ESP8266 needs to see a transition from high to low (and stay low for 100ns?) on the reset line.
+I need to revisit the docs for reset, but in general in order to reset I think the ESP8266 needs to see a transition from high to low (and stay low for 100ns?) on the reset line.
 
 The PIR sensors all just pull high when motion is detected.  So what's needed is typically a capacitor at the gate of a FET which then pulls the reset line low for RC-constant amount of time.  Sometimes called an edge detector.
 
@@ -75,7 +75,7 @@ If timer functionality is desired, a diode is placed between D0 and RESET so it 
 
 #### Dat Body Diode
 
-What's sort of vaguely missing is if the code runs for longer than the timeout period of the PIR signal.  If another edge comes in from the PIR...  you might get reset with your pants down.
+What's sort of vaguely missing is if the code runs for longer than the timeout period of the PIR signal.  If another edge comes in from the PIR...  you might get reset with your pants down.  And nobody wants to see that, not even the bear.
 
 So you need to pull the gate of the reset FET low to prevent further resets while you're working.  And since you already need a diode shunt the reverse voltage on the gate of the reset FET...  just throw a second transistor (body diode) in its place.
 
@@ -99,6 +99,7 @@ So you need to pull the gate of the reset FET low to prevent further resets whil
 * Switch to FET arrays (2x for reset line, 1x for buzer, 1x spare?)
 * Space for power capacitor
 * Bigger vias
+* Spicy simulation results
 
 ### Case
 
