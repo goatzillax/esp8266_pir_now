@@ -54,7 +54,10 @@ void deepSleep() {
 void setup() {
    Serial.begin(115200);
 
-   //Serial.println();
+#ifdef DEBUG
+   delay(1000);
+   Serial.println();
+#endif
 
    pinMode(D0, WAKEUP_PULLUP);
    pinMode(LED_BUILTIN, OUTPUT);
