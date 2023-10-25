@@ -9,9 +9,6 @@
 #include "esp8266_pir_now.h"
 #include "sekritz.h"
 
-//struct_PIR_msg PIR_msg;
-//  TODO:  beeper
-
 typedef struct {
    uint32_t src;	//  last 3 bytes of MAC
    uint32_t timestamp;	//  seconds since epoch.  pretty sure I don't need more that second resolution
@@ -50,12 +47,14 @@ String mactoname(uint8_t *mac) {
    return longtoname(i);
 }
 
-#define INFRA
-#ifdef INFRA
 WiFiUDP		ntpUDP;
 NTPClient	timeClient(ntpUDP);
 
+unsigned long	epoch;  //  offline substitute for NTPClient.
+
 AsyncWebServer webserver(80);
+
+#define WIFI_STA_WAIT 10000
 
 // Taken from forked NTP client https://github.com/taranais/NTPClient/blob/master/NTPClient.cpp
 String getFormattedTime(unsigned long secs) {
@@ -103,6 +102,8 @@ String getFormattedDateTime(unsigned long secs) {
 void infra_setup() {
    WiFi.begin(WIFI_SSID, WIFI_PSK);
 
+   unsigned long wifi_start_time=millis();
+   
    // Begin LittleFS
    if (!LittleFS.begin())
    {
@@ -111,9 +112,36 @@ void infra_setup() {
    }
 
    while (WiFi.status() != WL_CONNECTED) {
-      delay(100);
+      if (millis() - wifi_start_time > WIFI_STA_WAIT) {
+         break;
+      }
+      delay(100);  //  get the feeling this is needed...
    }
-   Serial.println(WiFi.localIP());
+   //  schitt or get off the pot time
+   if (WiFi.status() == WL_CONNECTED) {
+      Serial.println(WiFi.localIP());
+      timeClient.begin();  //  dis feels optional but whatevs
+   }
+   else {
+      WiFi.disconnect();
+      //  no longer in infra mode (forever?)
+      //  Scan for clearest channel?
+      WiFi.softAP(SOFTAP_SSID, SOFTAP_PSK, SOFTAP_CHAN);   //  ERROR CHECKING IS 4 SUCKAZ
+      Serial.println(WiFi.softAPIP());
+   }
+
+   webserver.on("/now", HTTP_GET, [](AsyncWebServerRequest *request) {
+      //  kind of would like to find a way to shove my fist in NTPClient...  ah whatevs
+      if (WiFi.status() == WL_CONNECTED) {
+         request->send(200, "text/plain", "ay stupid u can't use this");
+      }
+      else {
+         //  lol c++
+         epoch =  strtoul(request->getParam(0)->value().c_str(), NULL, 10) - millis()/1000;
+         Serial.println(epoch);
+         request->send(200, "text/plain", "k u have 49 days to come back and fix this");
+      }
+   });
 
    webserver.on("/history", HTTP_GET, [](AsyncWebServerRequest *request) {
       AsyncResponseStream *response = request->beginResponseStream("text/plain");
@@ -132,26 +160,16 @@ void infra_setup() {
       }
       request->send(response);
    });
+
    webserver.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
    webserver.begin();
-
-   //timeClient.setTimeOffset(-5*3600);  //  meh...  consider making this the client's problem
-   timeClient.begin();  //  dis feels optional but whatevs
 }
 
 void infra_loop() {
-   timeClient.update();
-//   if(timeClient.isTimeSet()) {
-//      Serial.println(timeClient.getFormattedTime());
-//   }
+   if (WiFi.status() == WL_CONNECTED) {
+      timeClient.update();
+   }
 }
-#else
-void infra_setup() {
-}
-
-void infra_loop() {
-}
-#endif
 
 void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
    digitalWrite(LED_BUILTIN, LOW);
@@ -159,11 +177,17 @@ void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
       return;  //  or halt but DO NOT CATCH FIRE
    }  //  change this if payloads start to vary
    memcpy(&log_entry.msg, incomingData, sizeof(log_entry.msg));
-#ifdef INFRA
+
    log_entry.src = mac[5] + (mac[4]<<8) + (mac[3]<< 16);
-   log_entry.timestamp = timeClient.getEpochTime();
+   if (WiFi.status() == WL_CONNECTED) {
+      //  uh, wat 2 do if time ain't set?
+      log_entry.timestamp = timeClient.getEpochTime();
+   }
+   else {
+      log_entry.timestamp = epoch + millis()/1000;
+   }
    history.push(log_entry);   
-#endif
+
    print_PIR_msg(&log_entry.msg, mactoname(mac));
    digitalWrite(LED_BUILTIN, HIGH);
 }
@@ -191,7 +215,7 @@ void setup() {
 
    if (esp_now_init() != 0) {
       Serial.println("Error initializing ESP-NOW");
-     return;
+      return;
    }
    esp_now_set_self_role(ESP_NOW_ROLE_SLAVE);
    esp_now_register_recv_cb(OnDataRecv);
@@ -199,5 +223,6 @@ void setup() {
 
 void loop() {
    infra_loop();
+   //  add buzzer control here
    delay(10000);
 }
