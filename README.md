@@ -35,9 +35,11 @@ TODO:  actual hardware RTC module or someting like a web client to set time
 
 ### Lolin D1 Mini
 
+https://www.wemos.cc/en/latest/d1/d1_mini.html
+
 Everything currently targeted at the Lolin D1 Mini because dats wat I has on hand.
 
-The original branded hardware...  acts kind of fishy sometimes.  The ADC resistor seems off and the reset line is touchy even with their own shields.
+The original branded hardware...  acts kind of fishy sometimes.  The ADC resistor seems off and the reset line is touchy even with their own shields.  Weirdly, the clones seem to actually work better, but are ... dimensionally challenged sometimes.
 
 ### PIR Sensors
 
@@ -101,3 +103,5 @@ TX V1 case based on Lolin D1 Mini + 18650 LFP cell holder + custom PCB stack
 Can't figure out how to embed the STL viewer in github markdown.
 
 Viewer doesn't sport binary apparently, nor does it support .gz files.  Neat.  It's nearly the end of 2023, yall.
+
+TODO:  external power input, external reset
