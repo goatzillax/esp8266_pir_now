@@ -16,6 +16,7 @@ The chip should then enter deep sleep until woken up by PIR detection.
 
 * debug retry/timer mechanism.  probably more espressif errata.
 * rescan after X amount of failbertz
+* add selected channel to message for debugging
 
 ## Receiver unit
 
@@ -33,9 +34,10 @@ In offline mode:
 
 ### TODO
 
-* needs a beeper.  D4/GPIO2 is the LED which would be prefect butt it can't drive enough current.  so I need to invert the signal to the FET to drive a beeper...
-* soft AP for offline mode
-* actual hardware RTC module or someting like a web client to set time
+* needs a beeper.  D4/GPIO2 is the LED which would be prefect butt it can't drive enough current.  so I need to invert the signal to the n-channel FET to drive a beeper...  Quad FET array?
+* offline mode
+  * switch to soft AP after X seconds of infrastructure failure
+  * add hook to webserver to run settime/settimeofday based on request header from web client.
 
 ## Hardware
 
