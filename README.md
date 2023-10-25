@@ -22,22 +22,24 @@ The chip should then enter deep sleep until woken up by PIR detection.
 
 The receiver unit pretty much has to be running fulltime in order to receive ESP-NOW messages from the sensors.  (i.e. no sleep of any kind, including modem/wifi sleep.)
 
-In infrastructure mode:
-
-* fire up NTPClient
 * record events into a history buffer
 * serve history on a webserver
 
+In infrastructure mode:
+
+* fire up NTPClient
+
 In offline mode:
 
-* halp?
+* use form to set time from client
 
 ### TODO
 
 * needs a beeper.  D4/GPIO2 is the LED which would be prefect butt it can't drive enough current.  so I need to invert the signal to the n-channel FET to drive a beeper...  Quad FET array?
-* offline mode
-  * switch to soft AP after X seconds of infrastructure failure
-  * add hook to webserver to run settime/settimeofday based on request header from web client.
+* How to deal with millis() rollover in offline mode
+* ~~offline mode~~
+  * ~~switch to soft AP after X seconds of infrastructure failure~~
+  * ~~add hook to webserver to run settime/settimeofday based on request header from web client.~~
 
 ## Hardware
 
@@ -87,6 +89,30 @@ So you need to pull the gate of the reset FET low to prevent further resets whil
 
 * https://github.com/esp8266/esp8266-wiki/wiki/Boot-Process
 * https://randomnerdtutorials.com/esp8266-pinout-reference-gpios/
+
+The gates of Q1 and Q2 are both pulled low in my PCB, so if I want to reuse them, I can't use them on boot-critical pins.  I.e. these are completely no bueno:
+
+* D4/GPIO2 (Boot selector - High)
+* D3/GPIO0 (Boot selector - High) This is the PIR output, which would be high anyways on a deep sleep reset
+* TX/GPIO1 (? - High)
+* D8/GPIO15 (Pulled to ground, boot fails if pulled high) - Might be OK if pulled to ground?
+
+Side-eye:
+
+* D0/GPIO16 (High at boot) - this is used for deep sleep wakeup though
+* RX/GPIO3 (High at boot)
+
+PCB has a solder jumper to select from
+
+* RX
+* D5
+* D6
+* D7
+
+Options for adding a buzzer for receiver:
+
+1.  GPIO can sink 20ma, so deadbug a 220ohm resistor in series and connect Buzzer+ to H1 3.3v and Buzzer- to D3.  Use D3 as active low output.  This isn't full volume, but probably don't actually need full volume.
+2.  Connect Buzzer+ to H1 3.3v, Buzzer- to Q2 Drain (so the R3/R2/Q1 net).  Solder jumper D5/6/7 and use as active high output.  Pain in the ass, but preserves D3.
 
 ### PCB
 
