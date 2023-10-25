@@ -57,6 +57,8 @@ NTPClient	timeClient(ntpUDP);
 
 AsyncWebServer webserver(80);
 
+#define WIFI_STA_WAIT 10000
+
 // Taken from forked NTP client https://github.com/taranais/NTPClient/blob/master/NTPClient.cpp
 String getFormattedTime(unsigned long secs) {
   unsigned long rawTime = secs;
@@ -103,6 +105,8 @@ String getFormattedDateTime(unsigned long secs) {
 void infra_setup() {
    WiFi.begin(WIFI_SSID, WIFI_PSK);
 
+   unsigned long wifi_start_time=millis();
+   
    // Begin LittleFS
    if (!LittleFS.begin())
    {
@@ -111,9 +115,22 @@ void infra_setup() {
    }
 
    while (WiFi.status() != WL_CONNECTED) {
-      delay(100);
+      if (millis() - wifi_start_time > WIFI_STA_WAIT) {
+         break;
+      }
    }
-   Serial.println(WiFi.localIP());
+   //  schitt or get off the pot time
+   if (WiFi.status() == WL_CONNECTED) {
+      Serial.println(WiFi.localIP());
+      timeClient.begin();  //  dis feels optional but whatevs
+   }
+   else {
+      WiFi.disconnect();
+      //  no longer in infra mode (forever?)
+      //  Scan for clearest channel?
+      WiFi.softAP(SOFTAP_SSID, SOFTAP_PSK, SOFTAP_CHAN);   //  ERROR CHECKING IS 4 SUCKAZ
+      Serial.println(WiFi.softAPIP());
+   }
 
    webserver.on("/history", HTTP_GET, [](AsyncWebServerRequest *request) {
       AsyncResponseStream *response = request->beginResponseStream("text/plain");
@@ -134,13 +151,12 @@ void infra_setup() {
    });
    webserver.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
    webserver.begin();
-
-   //timeClient.setTimeOffset(-5*3600);  //  meh...  consider making this the client's problem
-   timeClient.begin();  //  dis feels optional but whatevs
 }
 
 void infra_loop() {
-   timeClient.update();
+   if (WiFi.status() == WL_CONNECTED) {
+      timeClient.update();
+   }
 //   if(timeClient.isTimeSet()) {
 //      Serial.println(timeClient.getFormattedTime());
 //   }
