@@ -4,13 +4,14 @@ Rework of an older PIR sensor project with updated goals.
 
 ## Transmit unit
 
-The system is intended to support multiple transmitter/sensor units in an 'offline' (non-infrastructure) mode in case of remote usage.  Think:  camping.  Don't want no bears sneaking up on me know what mi saying i ain't down with that git away from thar, bear.
+The system is intended to support multiple transmitter/sensor units in an 'offline' (non-infrastructure) mode in case of remote usage.  Think:  camping.  Don't want no bears sneaking up on me know what im saying i ain't down with that git away from thar, bear u don't know me like that.
 
-Upon first power-up, the transmitter will scan available channels until a message is successful and then save that channel to RTC memory.
+Upon first power up, the transmitter will scan available channels until a message is successful and then save that channel to RTC memory.
 
 The chip should then enter deep sleep until woken up by PIR detection.
 
 TODO:  debug retry/timer mechanism.  probably more espressif errata.
+TODO:  rescan after X amount of failbertz
 
 ## Receiver unit
 
@@ -18,7 +19,7 @@ The receiver unit pretty much has to be running fulltime in order to receive ESP
 
 In infrastructure mode:
 
-* fire up NTPClient to log time
+* fire up NTPClient
 * record events into a history buffer
 * serve history on a webserver
 
@@ -27,6 +28,8 @@ In offline mode:
 * halp?
 
 TODO:  needs a beeper.  D4/GPIO2 is the LED which would be prefect butt it can't drive enough current.  so I need to invert the signal to the FET to drive a beeper...
+TODO:  soft AP for offline mode
+TODO:  actual hardware RTC module or someting like a web client to set time
 
 ## Hardware
 
@@ -68,7 +71,7 @@ If timer functionality is desired, a diode is placed between D0 and RESET so it 
 
 What's sort of vaguely missing is if the code runs for longer than the timeout period of the PIR signal.  If another edge comes in from the PIR...  you might get reset with your pants down.
 
-So you need to pull the gate of the reset FET low to prevent further resets while you're working.  And since you already need a diode shunt the reverse voltage on the gate of the reset FET...  just throw a second transistor in there.
+So you need to pull the gate of the reset FET low to prevent further resets while you're working.  And since you already need a diode shunt the reverse voltage on the gate of the reset FET...  just throw a second transistor (body diode) in its place.
 
 #### Even More Reset Hijinx
 
@@ -77,7 +80,7 @@ So you need to pull the gate of the reset FET low to prevent further resets whil
 
 ### PCB
 
-![PCB](/docs/PIR_LFP_Schematic.png){: width="25%"}
+![PCB](/docs/PIR_LFP_Schematic.png)
 
 #### TODO
 
@@ -85,18 +88,16 @@ So you need to pull the gate of the reset FET low to prevent further resets whil
 * Put optional parts on back, required parts on front (looking at you, R3)
 * Castellated edges
 * Space for 3.5v zener diode
-* Space for buzzer
-* Switch to FET arrays (2x for RESET line
+* Space for buzzer (avoid I2C pins) (for RX)
+* I2C RTC header (for RX)
+* Switch to FET arrays (2x for reset line, 1x for buzer, 1x spare?)
 * Space for power capacitor
+* Bigger vias
 
 ### Case
 
-V1 case based on Lolin D1 Mini + 18650 LFP cell holder + custom PCB stack
+TX V1 case based on Lolin D1 Mini + 18650 LFP cell holder + custom PCB stack
 
 Can't figure out how to embed the STL viewer in github markdown.
 
-![STL](/hardware/PIR_LFP_case_v1-top.stl)
-
-(/hardware/PIR_LFP_case_v1-top.stl)
-
-
+Viewer doesn't sport binary apparently, nor does it support .gz files.  Neat.  It's nearly the end of 2023, yall.
