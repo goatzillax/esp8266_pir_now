@@ -55,6 +55,8 @@ String mactoname(uint8_t *mac) {
 WiFiUDP		ntpUDP;
 NTPClient	timeClient(ntpUDP);
 
+unsigned long	epoch;  //  offline substitute for NTPClient.
+
 AsyncWebServer webserver(80);
 
 #define WIFI_STA_WAIT 10000
@@ -133,6 +135,19 @@ void infra_setup() {
       Serial.println(WiFi.softAPIP());
    }
 
+   webserver.on("/now", HTTP_GET, [](AsyncWebServerRequest *request) {
+      //  kind of would like to find a way to shove my fist in NTPClient...  ah whatevs
+      if (WiFi.status() == WL_CONNECTED) {
+         request->send(200, "text/plain", "ay stupid u can't use this");
+      }
+      else {
+         //  lol c++
+         epoch =  strtoul(request->getParam(0)->value().c_str(), NULL, 10) - millis()/1000;
+         Serial.println(epoch);
+         request->send(200, "text/plain", "k u have 49 days to come back and fix this");
+      }
+   });
+
    webserver.on("/history", HTTP_GET, [](AsyncWebServerRequest *request) {
       AsyncResponseStream *response = request->beginResponseStream("text/plain");
       int i;
@@ -150,6 +165,7 @@ void infra_setup() {
       }
       request->send(response);
    });
+
    webserver.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
    webserver.begin();
 }
@@ -178,7 +194,13 @@ void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
    memcpy(&log_entry.msg, incomingData, sizeof(log_entry.msg));
 #ifdef INFRA
    log_entry.src = mac[5] + (mac[4]<<8) + (mac[3]<< 16);
-   log_entry.timestamp = timeClient.getEpochTime();
+   if (WiFi.status() == WL_CONNECTED) {
+      //  uh, wat 2 do if time ain't set?
+      log_entry.timestamp = timeClient.getEpochTime();
+   }
+   else {
+      log_entry.timestamp = epoch + millis()/1000;
+   }
    history.push(log_entry);   
 #endif
    print_PIR_msg(&log_entry.msg, mactoname(mac));
@@ -202,13 +224,13 @@ void setup() {
    WiFi.disconnect();
    WiFi.persistent(false);
    WiFi.setSleepMode(WIFI_NONE_SLEEP);  // fucking clown shoes I swear
-   WiFi.mode(WIFI_AP_STA);
+   WiFi.mode(WIFI_STA);
 
    infra_setup();
 
    if (esp_now_init() != 0) {
       Serial.println("Error initializing ESP-NOW");
-     return;
+      return;
    }
    esp_now_set_self_role(ESP_NOW_ROLE_SLAVE);
    esp_now_register_recv_cb(OnDataRecv);
