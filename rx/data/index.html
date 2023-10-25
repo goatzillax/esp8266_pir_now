@@ -1,1 +1,24 @@
-henlo wrodl
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>henlo wrodl</h2>
+
+<form action="/now">
+<input type="text" id="now" name="now">
+<input type="submit" value="Set time">
+</form>
+<script>
+
+const timeElement = document.getElementById("now");
+
+function updateTime() {
+    timeElement.value = Math.round(Date.now()/1000);
+}
+
+updateTime();
+setInterval(updateTime, 1000);
+
+</script>
+</body>
+</html>
