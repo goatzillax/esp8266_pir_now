@@ -19,6 +19,38 @@ struct_log_entry log_entry;
 
 CircularBuffer<struct_log_entry,128> history;
 
+#define BUZZER_PATTERN_LEN  6
+#define BUZZER_DELAY        1000
+const int buzzer_pattern[BUZZER_PATTERN_LEN] = { LOW, HIGH, LOW, HIGH, LOW, HIGH};
+
+int buzzer_state=BUZZER_PATTERN_LEN;
+unsigned long buzzer_start;
+
+//  Receiver don't got no PIR on itself
+#define BUZZER_PIN	D3
+
+void start_buzzer() {
+   if (buzzer_state == BUZZER_PATTERN_LEN) {
+      buzzer_state = 0;
+      buzzer_start = millis();
+   }
+}
+
+//  I like writing schedulers.  I really really like writing schedulers.
+void cycle_buzzer() {
+   if (buzzer_state == BUZZER_PATTERN_LEN) {
+      return;
+   }
+
+   digitalWrite(BUZZER_PIN, buzzer_pattern[buzzer_state]);
+   digitalWrite(LED_BUILTIN, buzzer_pattern[buzzer_state]);
+
+   if (millis() - buzzer_start > BUZZER_DELAY) {
+      buzzer_state++;
+      buzzer_start = millis();
+   }
+}
+
 String mactostr(uint8_t *mac) {
    //  I LOVE CPP
    char macStr[18] = { 0 };
@@ -172,7 +204,6 @@ void infra_loop() {
 }
 
 void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
-   digitalWrite(LED_BUILTIN, LOW);
    if (len != sizeof(log_entry.msg)) {
       return;  //  or halt but DO NOT CATCH FIRE
    }  //  change this if payloads start to vary
@@ -187,16 +218,18 @@ void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
       log_entry.timestamp = epoch + millis()/1000;
    }
    history.push(log_entry);   
-
+   start_buzzer();
    print_PIR_msg(&log_entry.msg, mactoname(mac));
-   digitalWrite(LED_BUILTIN, HIGH);
 }
 
 void setup() {
    Serial.begin(115200);
 
    pinMode(LED_BUILTIN, OUTPUT);
+   pinMode(BUZZER_PIN, OUTPUT);
+
    digitalWrite(LED_BUILTIN, HIGH);
+   digitalWrite(BUZZER_PIN, HIGH);
 
 #define DEBUG
 #ifdef DEBUG
@@ -224,5 +257,6 @@ void setup() {
 void loop() {
    infra_loop();
    //  add buzzer control here
-   delay(10000);
+   cycle_buzzer();
+   delay(100);
 }
