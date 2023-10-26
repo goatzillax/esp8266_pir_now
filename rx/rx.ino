@@ -9,9 +9,6 @@
 #include "esp8266_pir_now.h"
 #include "sekritz.h"
 
-//struct_PIR_msg PIR_msg;
-//  TODO:  beeper
-
 typedef struct {
    uint32_t src;	//  last 3 bytes of MAC
    uint32_t timestamp;	//  seconds since epoch.  pretty sure I don't need more that second resolution
@@ -50,8 +47,6 @@ String mactoname(uint8_t *mac) {
    return longtoname(i);
 }
 
-#define INFRA
-#ifdef INFRA
 WiFiUDP		ntpUDP;
 NTPClient	timeClient(ntpUDP);
 
@@ -174,17 +169,7 @@ void infra_loop() {
    if (WiFi.status() == WL_CONNECTED) {
       timeClient.update();
    }
-//   if(timeClient.isTimeSet()) {
-//      Serial.println(timeClient.getFormattedTime());
-//   }
 }
-#else
-void infra_setup() {
-}
-
-void infra_loop() {
-}
-#endif
 
 void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
    digitalWrite(LED_BUILTIN, LOW);
@@ -192,7 +177,7 @@ void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
       return;  //  or halt but DO NOT CATCH FIRE
    }  //  change this if payloads start to vary
    memcpy(&log_entry.msg, incomingData, sizeof(log_entry.msg));
-#ifdef INFRA
+
    log_entry.src = mac[5] + (mac[4]<<8) + (mac[3]<< 16);
    if (WiFi.status() == WL_CONNECTED) {
       //  uh, wat 2 do if time ain't set?
@@ -202,7 +187,7 @@ void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
       log_entry.timestamp = epoch + millis()/1000;
    }
    history.push(log_entry);   
-#endif
+
    print_PIR_msg(&log_entry.msg, mactoname(mac));
    digitalWrite(LED_BUILTIN, HIGH);
 }
@@ -238,5 +223,6 @@ void setup() {
 
 void loop() {
    infra_loop();
+   //  add buzzer control here
    delay(10000);
 }
