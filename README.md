@@ -35,11 +35,8 @@ In offline mode:
 
 ### TODO
 
-* needs a beeper.  D4/GPIO2 is the LED which would be prefect butt it can't drive enough current.  so I need to invert the signal to the n-channel FET to drive a beeper...  Quad FET array?
+* Add configuration hook for things like enable/disable, snooze
 * How to deal with millis() rollover in offline mode
-* ~~offline mode~~
-  * ~~switch to soft AP after X seconds of infrastructure failure~~
-  * ~~add hook to webserver to run settime/settimeofday based on request header from web client.~~
 
 ## Hardware
 
