@@ -14,6 +14,10 @@ uint8_t masterAddr[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
 struct_PIR_msg PIR_msg;
 
+#define LATCH_PIN D5
+int session_tries;
+#define MAX_TRIES 3
+
 enum e_xmit_state {
    XMIT_IDLE,
    XMIT_STARTED,
@@ -47,6 +51,7 @@ void OnDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
 
 void deepSleep() {
    rtcMemory.save();
+   digitalWrite(LATCH_PIN, LOW);
    ESP.deepSleep(0);  //  man this is some unreliable shit
    ESP.deepSleep(ESP.deepSleepMax());
 }
@@ -61,6 +66,8 @@ void setup() {
 
    pinMode(D0, WAKEUP_PULLUP);
    pinMode(LED_BUILTIN, OUTPUT);
+   pinMode(LATCH_PIN, OUTPUT);
+   digitalWrite(LATCH_PIN, HIGH);
 
    WiFi.disconnect();
    WiFi.persistent(false);
@@ -96,6 +103,7 @@ void setup() {
    }
    wifi_set_channel(wifi_search_chan);
 
+   session_tries = 0;
 }
 
 void loop() {
@@ -122,7 +130,13 @@ void loop() {
             }  //  message failed, cycle channel
          }  //  in search mode
          else {
-            deepSleep(); 
+            if ((data->fails != 0) && (session_tries < MAX_TRIES)) {
+               rtcMemory.save();
+               delay(random(500,1000));
+            }  //  random backoff and retry because deepsleep with timeout seems buggy
+            else {
+               deepSleep();
+            }
          }  //  not in search mode
          xmit_state = XMIT_IDLE;
          break;
@@ -143,6 +157,7 @@ void loop() {
             }
 
             xmit_state = XMIT_STARTED;
+            session_tries++;
             digitalWrite(LED_BUILTIN, LOW);
             esp_now_send(masterAddr, (uint8_t *)&PIR_msg, sizeof(PIR_msg));
          }
