@@ -111,8 +111,8 @@ PCB has a solder jumper to select from
 
 Options for adding a buzzer for receiver:
 
-1.  GPIO can sink 20ma, so deadbug a 220ohm resistor in series and connect Buzzer+ to H1 3.3v and Buzzer- to D3.  Use D3 as active low output.  This isn't full volume, but probably don't actually need full volume.
-2.  Connect Buzzer+ to H1 3.3v, Buzzer- to Q2 Drain (so the R3/R2/Q1 net).  Solder jumper D5/6/7 and use as active high output.  Pain in the ass, but preserves D3.
+1.  ~~GPIO can sink 20ma, so deadbug a 220ohm resistor in series and connect Buzzer+ to H1 3.3v and Buzzer- to D3.  Use D3 as active low output.  This isn't full volume, but probably don't actually need full volume.~~  This pretty much sucks; the buzzer does squat at that current.
+2.  Connect Buzzer+ to H1 3.3v, Buzzer- to Q2 Drain (so the R3/R2/Q1 net).  Solder jumper D5/6/7 and use as active high output.  Pain in the ass, but preserves D3.  5v buzzer running at 3.3v is still pretty loud.
 
 ### PCB
 
