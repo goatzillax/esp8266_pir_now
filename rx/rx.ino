@@ -21,13 +21,13 @@ CircularBuffer<struct_log_entry,128> history;
 
 #define BUZZER_PATTERN_LEN  6
 #define BUZZER_DELAY        1000
-const int buzzer_pattern[BUZZER_PATTERN_LEN] = { LOW, HIGH, LOW, HIGH, LOW, HIGH};
+const int buzzer_pattern[BUZZER_PATTERN_LEN] = { HIGH, LOW, HIGH, LOW, HIGH, LOW };
 
 int buzzer_state=BUZZER_PATTERN_LEN;
 unsigned long buzzer_start;
 
 //  Receiver don't got no PIR on itself
-#define BUZZER_PIN	D3
+#define BUZZER_PIN	D5
 
 void start_buzzer() {
    if (buzzer_state == BUZZER_PATTERN_LEN) {
@@ -43,7 +43,7 @@ void cycle_buzzer() {
    }
 
    digitalWrite(BUZZER_PIN, buzzer_pattern[buzzer_state]);
-   digitalWrite(LED_BUILTIN, buzzer_pattern[buzzer_state]);
+   digitalWrite(LED_BUILTIN, !buzzer_pattern[buzzer_state]);
 
    if (millis() - buzzer_start > BUZZER_DELAY) {
       buzzer_state++;
@@ -67,6 +67,8 @@ String longtoname(uint32_t longmac) {
       case PIR01:
          return String("PIR01");
          break;
+      case PIR_X:
+         return String("PIR_X");
       default:
          return String(longmac, HEX);
          break;
@@ -158,7 +160,7 @@ void infra_setup() {
       WiFi.disconnect();
       //  no longer in infra mode (forever?)
       //  Scan for clearest channel?
-      WiFi.softAP(SOFTAP_SSID, SOFTAP_PSK, SOFTAP_CHAN);   //  ERROR CHECKING IS 4 SUCKAZ
+      WiFi.softAP(SOFTAP_SSID, SOFTAP_PSK, SOFTAP_CHAN, 1);   //  ERROR CHECKING IS 4 SUCKAZ
       Serial.println(WiFi.softAPIP());
    }
 
@@ -229,7 +231,7 @@ void setup() {
    pinMode(BUZZER_PIN, OUTPUT);
 
    digitalWrite(LED_BUILTIN, HIGH);
-   digitalWrite(BUZZER_PIN, HIGH);
+   digitalWrite(BUZZER_PIN, LOW);
 
 #define DEBUG
 #ifdef DEBUG
