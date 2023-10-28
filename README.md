@@ -2,6 +2,8 @@
 
 Rework of an older PIR sensor project with updated goals.
 
+![PCB](/docs/PIR_LFP_NOW.jpg){: width="50%"}
+
 ## Transmit unit
 
 The system is intended to support multiple transmitter/sensor units in an 'offline' (non-infrastructure) mode in case of remote usage.  Think:  camping.  Don't want no bears sneaking up on me know what im saying i ain't down with that git away from thar, bear u don't know me like that.
@@ -113,7 +115,7 @@ Options for adding a buzzer for receiver:
 
 ### PCB
 
-![PCB](/docs/PIR_LFP_Schematic.png)
+![PCB](/docs/PIR_LFP_Schematic.png){: width="50%"}
 
 #### TODO
 
