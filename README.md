@@ -2,7 +2,7 @@
 
 Rework of an older PIR sensor project with updated goals.
 
-![PCB](/docs/PIR_LFP_NOW.jpg | width=100)
+![Samples](/docs/PIR_LFP_NOW.jpg)
 
 ## Transmit unit
 
@@ -115,7 +115,7 @@ Options for adding a buzzer for receiver:
 
 ### PCB
 
-![PCB](/docs/PIR_LFP_Schematic.png | width=100)
+![PCB](/docs/PIR_LFP_Schematic.png)
 
 #### TODO
 
