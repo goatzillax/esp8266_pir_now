@@ -85,8 +85,7 @@ function addHistory(data) {
    for (var i in data) {
       timestamp = new Date(data[i][0]*1000);
       history_block.appendChild(document.createTextNode(timestamp+" "));
-      history_block.appendChild(document.createTextNode(slist[data[i][1]]["name"] + " "));
-
+      history_block.appendChild(document.createTextNode(data[i][1] in slist ? slist[data[i][1]]["name"] : data[i][1] + " "));
       history_block.appendChild(document.createTextNode(data[i][2] + " "));
       history_block.appendChild(document.createTextNode(data[i][3] + "v "));
       history_block.appendChild(document.createTextNode(data[i][4] + "\n"));
