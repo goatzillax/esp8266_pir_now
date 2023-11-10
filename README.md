@@ -2,6 +2,8 @@
 
 Rework of an older PIR sensor project with updated goals.
 
+![Samples](/docs/PIR_LFP_NOW.jpg)
+
 ## Transmit unit
 
 The system is intended to support multiple transmitter/sensor units in an 'offline' (non-infrastructure) mode in case of remote usage.  Think:  camping.  Don't want no bears sneaking up on me know what im saying i ain't down with that git away from thar, bear u don't know me like that.
@@ -12,9 +14,18 @@ Upon first power up, the transmitter will scan available channels until a messag
 
 The chip should then enter deep sleep until woken up by PIR detection.
 
+### The Problem with D3
+
+Just realized why deep sleep with a timeout was failing.  It wasn't actually failing, it was because D3 is being used as the PIR input.
+
+D3 must be pulled high at boot time or boot will fail.  Under normal PIR triggering, this is true.
+
+However, if the board wakes up via a deep sleep timeout, the PIR output will still be driving low...  causing boot to fail.
+
+The Wemos shield allows selection of the target GPIO...  but my v1 PCB doesn't because i r dum.
+
 ### TODO
 
-* debug retry/timer mechanism.  probably more espressif errata.
 * rescan after X amount of failbertz
 * add selected channel to message for debugging
 
@@ -123,7 +134,7 @@ Options for adding a buzzer for receiver:
 * Space for 3.5v zener diode
 * Space for buzzer (avoid I2C pins) (for RX)
 * I2C RTC header (for RX)
-* Switch to FET arrays (2x for reset line, 1x for buzzer, 1x spare?)
+* Switch to FET arrays (2x for reset line+latch, 1x for buzzer, 1x inverter?)
 * Space for power capacitor
 * Bigger vias
 * Spicy simulation results
