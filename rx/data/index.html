@@ -1,14 +1,32 @@
 <!DOCTYPE html>
-<html>
-<body>
-
-<h2>henlo wrodl</h2>
-
-<form action="/now">
+<form action="/action_page.php">
 <input type="text" id="now" name="now">
+<input type="radio" name="cmd" value="now" checked required>
 <input type="submit" value="Set time">
 </form>
-<script>
+<br>
+<form action="/action_page.php">
+<table id="sensorlist" border=1>
+</table>
+<br>
+<input type="radio" name="cmd" value="enable" checked required>Enable
+<input type="radio" name="cmd" value="disable">Disable<Br>
+<input type="text" name="snooze" value="300">
+<input type="radio" name="cmd" value="snooze">Snooze<br>
+<input type="text" name="rename">
+<input type="radio" name="cmd" value="rename">Rename<br>
+<input type="submit" value="Exec">
+</form>
+<br>
+<form action="/action_page.php">
+<input type="radio" name="cmd" value="restart" required>Safety because ur fingerz r so dam fat
+<input type="submit" value="Restart">
+</form>
+<br>
+<br>
+<pre id=history>
+</pre>
+<script type=text/javascript>
 
 const timeElement = document.getElementById("now");
 
@@ -18,6 +36,66 @@ function updateTime() {
 
 updateTime();
 setInterval(updateTime, 1000);
+
+//  This is just a glorified text parser.  It just lets me store/pass data between the ESP
+//  and HTML without too much custom parsing/dumping.
+slist = {};
+
+function addSensors(sensors) {
+    var table = document.getElementById("sensorlist");
+
+    slist = sensors;
+
+    for (var sensor in sensors) {
+
+       row = table.insertRow(-1);
+
+       input = document.createElement("input");
+       input.type = "checkbox";
+       input.name = "arg1";  //  counter
+       input.value = sensor;
+       if (sensors[sensor]["status"] == "enabled") {
+          input.checked=true;
+       }
+       row.insertCell(-1).appendChild(input);
+
+       row.insertCell(-1).appendChild(
+          document.createTextNode(sensors[sensor]["name"])
+       );
+
+       row.insertCell(-1).appendChild(
+          document.createTextNode(sensors[sensor]["status"])
+       );
+
+       if (sensors[sensor]["status"] == "snooze") {
+          row.insertCell(-1).appendChild(
+             document.createTextNode(sensors[sensor]["timestamp"]-Math.round(Date.now()/1000))
+          );
+       }
+    }
+}
+
+//  lol javascript.
+fetch("./sensors.json").then((res) => {
+	return res.json();
+}).then((data) => addSensors(data));
+
+function addHistory(data) {
+   var history_block = document.getElementById("history");
+   for (var i in data) {
+      timestamp = new Date(data[i][0]*1000);
+      history_block.appendChild(document.createTextNode(timestamp+" "));
+      history_block.appendChild(document.createTextNode(slist[data[i][1]]["name"] + " "));
+
+      history_block.appendChild(document.createTextNode(data[i][2] + " "));
+      history_block.appendChild(document.createTextNode(data[i][3] + "v "));
+      history_block.appendChild(document.createTextNode(data[i][4] + "\n"));
+   }
+}
+
+fetch("./history.json").then((res) => {
+	return res.json();
+}).then((data) => addHistory(data));
 
 </script>
 </body>
