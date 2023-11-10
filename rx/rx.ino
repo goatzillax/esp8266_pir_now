@@ -5,6 +5,9 @@
 #include <WiFiUdp.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+
+#include <ElegantOTA.h>
+#include <ArduinoJson.h>
 #include <LittleFS.h>
 #include "esp8266_pir_now.h"
 #include "sekritz.h"
@@ -36,6 +39,17 @@ void start_buzzer() {
    }
 }
 
+unsigned long reset_requested;
+
+void cycle_reset() {
+   if (reset_requested == 0) {
+      return;
+   }
+   if (millis() - reset_requested > 5000) {
+      ESP.reset();
+   }
+}
+
 //  I like writing schedulers.  I really really like writing schedulers.
 void cycle_buzzer() {
    if (buzzer_state == BUZZER_PATTERN_LEN) {
@@ -58,21 +72,9 @@ String mactostr(uint8_t *mac) {
    return String(macStr);
 }
 
+//  offloaded name lookup completely to the client
 String longtoname(uint32_t longmac) {
-   //  define ur own maczzzzz
-   switch(longmac) {
-      case PIR00:
-         return String("PIR00");
-         break;
-      case PIR01:
-         return String("PIR01");
-         break;
-      case PIR_X:
-         return String("PIR_X");
-      default:
-         return String(longmac, HEX);
-         break;
-   }
+   return String(longmac, HEX);
 }
 
 String mactoname(uint8_t *mac) {
@@ -133,10 +135,12 @@ String getFormattedDateTime(unsigned long secs) {
   return String(year) + monthStr + dayStr + "T" + getFormattedTime(secs) + "Z";
 }
 
+
 void infra_setup() {
    WiFi.begin(WIFI_SSID, WIFI_PSK);
 
    unsigned long wifi_start_time=millis();
+   reset_requested = 0;  //  extremely low likelihood of hitting this exactly at zero
    
    // Begin LittleFS
    if (!LittleFS.begin())
@@ -164,16 +168,34 @@ void infra_setup() {
       Serial.println(WiFi.softAPIP());
    }
 
-   webserver.on("/now", HTTP_GET, [](AsyncWebServerRequest *request) {
-      //  kind of would like to find a way to shove my fist in NTPClient...  ah whatevs
-      if (WiFi.status() == WL_CONNECTED) {
-         request->send(200, "text/plain", "ay stupid u can't use this");
-      }
-      else {
-         //  lol c++
-         epoch =  strtoul(request->getParam(0)->value().c_str(), NULL, 10) - millis()/1000;
-         Serial.println(epoch);
-         request->send(200, "text/plain", "k u have 49 days to come back and fix this");
+   //  kekeke
+
+   webserver.on("/action_page.php", HTTP_GET, [](AsyncWebServerRequest *request) {
+      AsyncWebParameter *p = NULL;
+      if (request->hasParam("cmd")) {
+         p = request->getParam("cmd");
+
+         if (p->value().compareTo("restart") == 0) {
+            //  can't reset here because we can't confirm the client has moved off this URL...
+            reset_requested = millis();
+            request->redirect("/");
+         }
+         else if (p->value().compareTo("now") == 0) {
+            //  kind of would like to find a way to shove my fist in NTPClient...  ah whatevs
+            if (WiFi.status() == WL_CONNECTED) {
+               request->send(200, "text/plain", "ay stupid u can't use this");
+            }
+            else {
+               if (!request->hasParam("now")) {
+                  request->send(200, "text/plain", "FU");
+                  return;
+               }
+               //  lol c++
+               epoch =  strtoul(request->getParam("now")->value().c_str(), NULL, 10) - millis()/1000;
+               Serial.println(epoch);
+               request->send(200, "text/plain", "k u have 49 days to come back and fix this");
+            }
+         }
       }
    });
 
@@ -182,7 +204,7 @@ void infra_setup() {
       int i;
       for (i=history.size()-1; i>=0; i--) {
          response->print(getFormattedDateTime(history[i].timestamp));
-         response->print(" ");
+         response->print(" 0x");
          response->print(longtoname(history[i].src));
          response->print(" ");
          response->print(history[i].msg.id);
@@ -195,7 +217,39 @@ void infra_setup() {
       request->send(response);
    });
 
+   //  hope I has enuf memory for dis...
+   webserver.on("/history.json", HTTP_GET, [](AsyncWebServerRequest *request) {
+      AsyncResponseStream *response = request->beginResponseStream("application/json");
+      int i;
+      response->print("[\n");
+      for (i=history.size()-1; i>=0; i--) {
+         response->print("[");
+         response->print(history[i].timestamp);
+         response->print(" ,\"0x");
+         response->print(longtoname(history[i].src));
+         response->print("\", ");
+         response->print(history[i].msg.id);
+         response->print(", ");
+         response->print(String((float) history[i].msg.voltage/100));
+         response->print(", ");
+         response->print(history[i].msg.failberts);
+         response->print("]");
+         if (i != 0) {
+            response->print(",\n");
+         }
+         else {
+            response->print("\n");
+         }
+      }
+      response->print("]");
+      request->send(response);
+   });
+
+
    webserver.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+
+   ElegantOTA.begin(&webserver);
+
    webserver.begin();
 }
 
@@ -258,7 +312,7 @@ void setup() {
 
 void loop() {
    infra_loop();
-   //  add buzzer control here
    cycle_buzzer();
+   cycle_reset();
    delay(100);
 }
