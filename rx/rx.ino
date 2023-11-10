@@ -6,7 +6,11 @@
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
+#define USE_OTA
+#ifdef USE_OTA
 #include <ElegantOTA.h>
+#endif
+
 #include <ArduinoJson.h>
 #include <LittleFS.h>
 #include "esp8266_pir_now.h"
@@ -65,12 +69,14 @@ void cycle_buzzer() {
    }
 }
 
+#if 0
 String mactostr(uint8_t *mac) {
    //  I LOVE CPP
    char macStr[18] = { 0 };
    sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
    return String(macStr);
 }
+#endif
 
 //  offloaded name lookup completely to the client
 String longtoname(uint32_t longmac) {
@@ -91,50 +97,6 @@ unsigned long	epoch;  //  offline substitute for NTPClient.
 AsyncWebServer webserver(80);
 
 #define WIFI_STA_WAIT 10000
-
-// Taken from forked NTP client https://github.com/taranais/NTPClient/blob/master/NTPClient.cpp
-String getFormattedTime(unsigned long secs) {
-  unsigned long rawTime = secs;
-  unsigned long hours = (rawTime % 86400L) / 3600;
-  String hoursStr = hours < 10 ? "0" + String(hours) : String(hours);
-
-  unsigned long minutes = (rawTime % 3600) / 60;
-  String minuteStr = minutes < 10 ? "0" + String(minutes) : String(minutes);
-
-  unsigned long seconds = rawTime % 60;
-  String secondStr = seconds < 10 ? "0" + String(seconds) : String(seconds);
-
-  return hoursStr + minuteStr + secondStr;
-}
-
-// Based on https://github.com/PaulStoffregen/Time/blob/master/Time.cpp
-// currently assumes UTC timezone, instead of using this->_timeOffset
-#define LEAP_YEAR(Y)     ( (Y>0) && !(Y%4) && ( (Y%100) || !(Y%400) ) )
-String getFormattedDateTime(unsigned long secs) {
-  unsigned long rawTime = secs / 86400L;  // in days
-  unsigned long days = 0, year = 1970;
-  uint8_t month;
-  static const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
-
-  while((days += (LEAP_YEAR(year) ? 366 : 365)) <= rawTime)
-    year++;
-  rawTime -= days - (LEAP_YEAR(year) ? 366 : 365); // now it is days in this year, starting at 0
-  days=0;
-  for (month=0; month<12; month++) {
-    uint8_t monthLength;
-    if (month==1) { // february
-      monthLength = LEAP_YEAR(year) ? 29 : 28;
-    } else {
-      monthLength = monthDays[month];
-    }
-    if (rawTime < monthLength) break;
-    rawTime -= monthLength;
-  }
-  String monthStr = ++month < 10 ? "0" + String(month) : String(month); // jan is month 1
-  String dayStr = ++rawTime < 10 ? "0" + String(rawTime) : String(rawTime); // day of month
-  return String(year) + monthStr + dayStr + "T" + getFormattedTime(secs) + "Z";
-}
-
 
 void infra_setup() {
    WiFi.begin(WIFI_SSID, WIFI_PSK);
@@ -199,24 +161,6 @@ void infra_setup() {
       }
    });
 
-   webserver.on("/history", HTTP_GET, [](AsyncWebServerRequest *request) {
-      AsyncResponseStream *response = request->beginResponseStream("text/plain");
-      int i;
-      for (i=history.size()-1; i>=0; i--) {
-         response->print(getFormattedDateTime(history[i].timestamp));
-         response->print(" 0x");
-         response->print(longtoname(history[i].src));
-         response->print(" ");
-         response->print(history[i].msg.id);
-         response->print(" ");
-         response->print(String((float) history[i].msg.voltage/100));
-         response->print("v ");
-         response->print(history[i].msg.failberts);
-         response->print("\n");
-      }
-      request->send(response);
-   });
-
    //  hope I has enuf memory for dis...
    webserver.on("/history.json", HTTP_GET, [](AsyncWebServerRequest *request) {
       AsyncResponseStream *response = request->beginResponseStream("application/json");
@@ -245,10 +189,11 @@ void infra_setup() {
       request->send(response);
    });
 
-
    webserver.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
 
+#ifdef USE_OTA
    ElegantOTA.begin(&webserver);
+#endif
 
    webserver.begin();
 }
@@ -275,7 +220,7 @@ void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
    }
    history.push(log_entry);   
    start_buzzer();
-   print_PIR_msg(&log_entry.msg, mactoname(mac));
+   //print_PIR_msg(&log_entry.msg, mactoname(mac));
 }
 
 void setup() {
