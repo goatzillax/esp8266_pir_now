@@ -89,6 +89,31 @@ String mactoname(uint8_t *mac) {
    return longtoname(i);
 }
 
+StaticJsonDocument<512> sensors;
+
+//  json file functions from the ESP side:
+//  add newly found sensors to the assoc array
+//  store persistent status
+
+//  load seems to be a pretty "free" operation
+void loadSensors() {
+   File file = LittleFS.open("sensors.json", "r");
+
+   deserializeJson(sensors, file);
+
+   file.close();
+}
+
+//  this is less free...
+void saveSensors() {
+   File file = LittleFS.open("sensors.json", "w");
+   if (!file) {
+      return;
+   }
+   serializeJson(sensors, file);
+   file.close();
+}
+
 WiFiUDP		ntpUDP;
 NTPClient	timeClient(ntpUDP);
 
@@ -97,6 +122,56 @@ unsigned long	epoch;  //  offline substitute for NTPClient.
 AsyncWebServer webserver(80);
 
 #define WIFI_STA_WAIT 10000
+
+//  pretty sure I would be better served with a getNames() or something but of course that doesn't exist
+//  i.e. snooze is a setstatus(2) plus start and duration...  bleh fix later.
+boolean setstatus(AsyncWebServerRequest *request, uint32_t value) {
+   //  all params starting with "0x" are names
+   boolean wb = false;
+   for (int i=0; i<request->params(); i++) {
+      AsyncWebParameter *p = request->getParam(i);
+      if (p->name().substring(0, 2) == "0x") {
+         if (sensors.containsKey(p->name())) {
+            sensors[p->name()]["status"] = value;
+            wb = true;
+         }
+      }
+   }
+   return wb;
+}
+
+//  yeah...  fixme plox
+boolean setNames(AsyncWebServerRequest *request) {
+   //  all params starting with "0x" are names
+   boolean wb = false;
+   for (int i=0; i<request->params(); i++) {
+      AsyncWebParameter *p = request->getParam(i);
+      if (p->name().substring(0, 2) == "0x") {
+         if (sensors.containsKey(p->name())) {
+            sensors[p->name()]["name"] = request->arg(p->name());
+            wb = true;
+         }
+      }
+   }
+   return wb;
+}
+
+boolean setSnooze(AsyncWebServerRequest *request, uint32_t tstart, uint32_t duration) {
+   //  all params starting with "0x" are names
+   boolean wb = false;
+   for (int i=0; i<request->params(); i++) {
+      AsyncWebParameter *p = request->getParam(i);
+      if (p->name().substring(0, 2) == "0x") {
+         if (sensors.containsKey(p->name())) {
+            sensors[p->name()]["status"] = 2;
+            sensors[p->name()]["start"] = tstart;
+            sensors[p->name()]["duration"] = duration;
+            wb = true;
+         }
+      }
+   }
+   return wb;
+}
 
 void infra_setup() {
    WiFi.begin(WIFI_SSID, WIFI_PSK);
@@ -142,6 +217,33 @@ void infra_setup() {
             reset_requested = millis();
             request->redirect("/");
          }
+         else if (p->value().compareTo("enable") == 0) {
+            if (setstatus(request, 1)) {
+               saveSensors();
+            }
+            request->redirect("/");
+         }
+         else if (p->value().compareTo("disable") == 0) {
+            if (setstatus(request, 0)) {
+               saveSensors();
+            }
+            request->redirect("/");
+         }
+         else if (p->value().compareTo("snooze") == 0) {
+            //  ugh this will get tedious fast need to figure out how to shove my fist in NTPClient
+            uint32_t tstart = WiFi.status() == WL_CONNECTED ? timeClient.getEpochTime() : epoch + millis()/1000;
+            uint32_t duration = strtoul(request->arg("snooze").c_str(), NULL, 10);  //  lol c++
+            if (setSnooze(request, tstart, duration)) {
+               saveSensors();
+            }
+            request->redirect("/");
+         }
+         else if (p->value().compareTo("rename") == 0) {
+            if (setNames(request)) {
+               saveSensors();
+            }
+            request->redirect("/");
+         }
          else if (p->value().compareTo("now") == 0) {
             //  kind of would like to find a way to shove my fist in NTPClient...  ah whatevs
             if (WiFi.status() == WL_CONNECTED) {
@@ -149,7 +251,7 @@ void infra_setup() {
             }
             else {
                if (!request->hasParam("now")) {
-                  request->send(200, "text/plain", "FU");
+                  request->send(200, "text/plain", "FU PENGUIN");
                   return;
                }
                //  lol c++
@@ -195,6 +297,7 @@ void infra_setup() {
    ElegantOTA.begin(&webserver);
 #endif
 
+   loadSensors();
    webserver.begin();
 }
 
@@ -203,6 +306,7 @@ void infra_loop() {
       timeClient.update();
    }
 }
+
 
 void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
    if (len != sizeof(log_entry.msg)) {
@@ -218,8 +322,33 @@ void OnDataRecv(uint8_t *mac, uint8_t *incomingData, uint8_t len) {
    else {
       log_entry.timestamp = epoch + millis()/1000;
    }
-   history.push(log_entry);   
-   start_buzzer();
+   history.push(log_entry);
+
+   String sensor = "0x"+String(log_entry.src, HEX);
+
+   //  if it's a new sensor, add it to the json doc, default disabled
+   if (!sensors.containsKey(sensor)) {
+      sensors.createNestedObject(sensor);
+      sensors[sensor]["status"] = 0;
+      saveSensors();
+      return;  //  and we're done
+   }
+
+   if (sensors[sensor]["status"] != 0) {
+      if (sensors[sensor]["status"] == 2) {
+         // ah shit here's where the rollover maths come into play.
+         unsigned long tstart = sensors[sensor]["start"];
+         unsigned long tduration = sensors[sensor]["duration"];
+         if (log_entry.timestamp - tstart > tduration) {
+            sensors[sensor]["status"] = 1;
+            saveSensors();
+         }
+         else {
+            return;  //  and we're done
+         }
+      }
+      start_buzzer();
+   }
    //print_PIR_msg(&log_entry.msg, mactoname(mac));
 }
 
