@@ -1,20 +1,23 @@
-<!DOCTYPE html>
+<html>
+<body>
+
 <form action="/action_page.php">
 <input type="text" id="now" name="now">
 <input type="radio" name="cmd" value="now" checked required>
 <input type="submit" value="Set time">
 </form>
 <br>
+<button onclick="checkAll(true)">Select all</button> 
+<button onclick="checkAll(false)">Clear all</button>
 <form action="/action_page.php">
 <table id="sensorlist" border=1>
 </table>
 <br>
 <input type="radio" name="cmd" value="enable" checked required>Enable
-<input type="radio" name="cmd" value="disable">Disable<Br>
+<input type="radio" name="cmd" value="disable">Disable
+<input type="radio" name="cmd" value="rename" onclick="changeNames()">Rename<br>
 <input type="text" name="snooze" value="300">
 <input type="radio" name="cmd" value="snooze">Snooze<br>
-<input type="text" name="rename">
-<input type="radio" name="cmd" value="rename">Rename<br>
 <input type="submit" value="Exec">
 </form>
 <br>
@@ -26,6 +29,7 @@
 <br>
 <pre id=history>
 </pre>
+
 <script type=text/javascript>
 
 const timeElement = document.getElementById("now");
@@ -37,39 +41,71 @@ function updateTime() {
 updateTime();
 setInterval(updateTime, 1000);
 
+//  dis probably should be shared somehow because sharing is caring
+statustostr = {
+   0 : "disabled",
+   1 : "enabled",
+   2 : "snooze"
+};
+
 //  This is just a glorified text parser.  It just lets me store/pass data between the ESP
 //  and HTML without too much custom parsing/dumping.
-slist = {};
+sensors = {};
 
-function addSensors(sensors) {
+//  this is kind of goofy but i dun want to do this on the arduino side, hence the textbox has no name.  we just shove our fist in the checkbox
+function changeNames() {
+   for (var sensor in sensors) {
+      dabox = document.getElementById(sensor);
+      if (dabox.checked) {
+         newname=document.getElementById(sensor+"_name").value;
+         dabox.value = newname
+      }
+   }
+}
+
+function checkAll(value) {
+   for (var sensor in sensors) {
+      var dabox = document.getElementById(sensor);
+      dabox.checked=value;
+   }
+}
+
+function addSensors(data) {
     var table = document.getElementById("sensorlist");
 
-    slist = sensors;
+    sensors = data;
 
     for (var sensor in sensors) {
-
        row = table.insertRow(-1);
 
        input = document.createElement("input");
+       input.id = sensor;
        input.type = "checkbox";
-       input.name = "arg1";  //  counter
-       input.value = sensor;
-       if (sensors[sensor]["status"] == "enabled") {
+       input.name = sensor;  //  counter
+       input.value = sensors[sensor]["name"] ? sensors[sensor]["name"] : sensor;
+       if (sensors[sensor]["status"] == 1) {
           input.checked=true;
        }
        row.insertCell(-1).appendChild(input);
 
        row.insertCell(-1).appendChild(
-          document.createTextNode(sensors[sensor]["name"])
+          document.createTextNode(sensor)
        );
+
+       //  alternate way of doing this...
+       textinput = document.createElement("input");
+       textinput.setAttribute("id", sensor+"_name");
+       textinput.setAttribute("type", "text");
+       textinput.setAttribute("value", sensors[sensor]["name"] ? sensors[sensor]["name"] : sensor);
+       row.insertCell(-1).appendChild(textinput);
 
        row.insertCell(-1).appendChild(
-          document.createTextNode(sensors[sensor]["status"])
+          document.createTextNode(statustostr[sensors[sensor]["status"]])
        );
 
-       if (sensors[sensor]["status"] == "snooze") {
+       if (sensors[sensor]["status"] == 2) {
           row.insertCell(-1).appendChild(
-             document.createTextNode(sensors[sensor]["timestamp"]-Math.round(Date.now()/1000))
+             document.createTextNode(sensors[sensor]["start"]+sensors[sensor]["duration"]-Math.round(Date.now()/1000))
           );
        }
     }
@@ -85,7 +121,8 @@ function addHistory(data) {
    for (var i in data) {
       timestamp = new Date(data[i][0]*1000);
       history_block.appendChild(document.createTextNode(timestamp+" "));
-      history_block.appendChild(document.createTextNode(data[i][1] in slist ? slist[data[i][1]]["name"] : data[i][1] + " "));
+      history_block.appendChild(document.createTextNode(sensors[data[i][1]]["name"] ? sensors[data[i][1]]["name"] : data[i][1]));
+      history_block.appendChild(document.createTextNode(" "));
       history_block.appendChild(document.createTextNode(data[i][2] + " "));
       history_block.appendChild(document.createTextNode(data[i][3] + "v "));
       history_block.appendChild(document.createTextNode(data[i][4] + "\n"));
@@ -97,5 +134,6 @@ fetch("./history.json").then((res) => {
 }).then((data) => addHistory(data));
 
 </script>
+
 </body>
 </html>
