@@ -31,10 +31,9 @@ The Wemos shield allows selection of the target GPIO...  but my v1 PCB doesn't b
 
 ## Receiver unit
 
-The receiver unit pretty much has to be running fulltime in order to receive ESP-NOW messages from the sensors.  (i.e. no sleep of any kind, including modem/wifi sleep.)
+The receiver unit pretty much has to be running fulltime in order to receive ESP-NOW messages from the sensors.  (i.e. no sleep of any kind, including modem/wifi sleep.)  And while it's doing that, it might as well run a webserver to present controls and events.
 
-* record events into a history buffer
-* serve history on a webserver
+![Samples](/docs/smaple_page.png)
 
 In infrastructure mode:
 
@@ -44,10 +43,37 @@ In offline mode:
 
 * use form to set time from client
 
+### Files
+
+#### www/history.json
+
+Not a real file in the filesystem, generated on the fly from the ESP's history buffer.
+
+#### www/sensors.json
+
+Real file residing on the filesystem, updated and maintained by the ESP.  Small hands, smell like cabbage, looks like this:
+
+        {
+           "0xcacaca" : {
+              "name" : "urmom",
+              "status" : 0
+           }
+        }
+
+### Division of work
+
+Currently a lot of tasks are split between the ESP and the web client via Javascript.
+
+The ESP "owns" (writes) both files.  The web client makes a bunch of queries to the ESP through http get methods which is actually kind of cumbersome to program.
+
+The alternative is to let the web client own the sensors.json file, make all manipulations necessary, and then simply upload the file wholesale to the ESP and tell it to refresh.  This is probably less secure but a lot less cumbersome in the ESP code because writing hooks for all that shit gets tedious and the same tasks are slightly easier in Javascript on the client.  Congrats to c++ for being slightly worse than Javascript.
+
+Would need to add some form of synchronization to the webserver to avoid collisions if that's even possible and avoid stale data usage by the client (generation/sequence number).
+
 ### TODO
 
-* Add configuration hook for things like enable/disable, snooze
 * How to deal with millis() rollover in offline mode
+* Might need to deal with the 2038 rollover.  Helo 64bit epox?
 
 ## Hardware
 
