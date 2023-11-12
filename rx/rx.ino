@@ -18,7 +18,7 @@
 
 typedef struct {
    uint32_t src;	//  last 3 bytes of MAC
-   uint32_t timestamp;	//  seconds since epoch.  pretty sure I don't need more that second resolution
+   uint32_t timestamp;	//  seconds since epoch.  pretty sure I don't need more than second resolution
    struct_PIR_msg msg;
 } struct_log_entry;
 
@@ -97,7 +97,7 @@ StaticJsonDocument<512> sensors;
 
 //  load seems to be a pretty "free" operation
 void loadSensors() {
-   File file = LittleFS.open("sensors.json", "r");
+   File file = LittleFS.open("/www/sensors.json", "r");
 
    deserializeJson(sensors, file);
 
@@ -106,7 +106,7 @@ void loadSensors() {
 
 //  this is less free...
 void saveSensors() {
-   File file = LittleFS.open("sensors.json", "w");
+   File file = LittleFS.open("/www/sensors.json", "w");
    if (!file) {
       return;
    }
@@ -174,17 +174,24 @@ boolean setSnooze(AsyncWebServerRequest *request, uint32_t tstart, uint32_t dura
 }
 
 void infra_setup() {
-   WiFi.begin(WIFI_SSID, WIFI_PSK);
-
-   unsigned long wifi_start_time=millis();
-   reset_requested = 0;  //  extremely low likelihood of hitting this exactly at zero
-   
    // Begin LittleFS
    if (!LittleFS.begin())
    {
       Serial.println("error initializing littlefs");
-      return;  //  restart?
+      delay(5000);
+      ESP.reset();
    }
+
+   StaticJsonDocument<256> cfg;
+   File file = LittleFS.open("config.json","r");
+   deserializeJson(cfg, file);
+   file.close();
+
+   WiFi.begin(String(cfg["wifi"]["sta"]["ssid"]), String(cfg["wifi"]["sta"]["psk"]));
+
+   unsigned long wifi_start_time=millis();
+   reset_requested = 0;  //  extremely low likelihood of hitting this exactly at zero
+   
 
    while (WiFi.status() != WL_CONNECTED) {
       if (millis() - wifi_start_time > WIFI_STA_WAIT) {
@@ -201,7 +208,7 @@ void infra_setup() {
       WiFi.disconnect();
       //  no longer in infra mode (forever?)
       //  Scan for clearest channel?
-      WiFi.softAP(SOFTAP_SSID, SOFTAP_PSK, SOFTAP_CHAN, 1);   //  ERROR CHECKING IS 4 SUCKAZ
+      WiFi.softAP(String(cfg["wifi"]["ap"]["ssid"]), String(cfg["wifi"]["ap"]["psk"]), cfg["wifi"]["ap"]["chan"], 1);   //  ERROR CHECKING IS 4 SUCKAZ
       Serial.println(WiFi.softAPIP());
    }
 
@@ -291,7 +298,7 @@ void infra_setup() {
       request->send(response);
    });
 
-   webserver.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+   webserver.serveStatic("/", LittleFS, "/www/").setDefaultFile("index.html");
 
 #ifdef USE_OTA
    ElegantOTA.begin(&webserver);
