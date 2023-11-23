@@ -1,14 +1,13 @@
 #include <ESP8266WiFi.h>
 #include <espnow.h>
 #include <RTCMemory.h>
+#include <ArduinoJson.h>
 #include "esp8266_pir_now.h"
-#include "sekritz.h"
 
 //  ESPRESSIF CORE IS STILL DICKED UP BUT YOU CAN FORCE THE CHANNEL WITH WIFI_SET_CHANNEL()
 
-#ifndef MASTER_ADDRESS
-uint8_t masterAddr[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-#endif
+//  by the way, esptool.py under Arduino is broken past 2.5.0 for uploading LittleFS.  Great job guys.  And it fucking changes the baud to 408000 for no apparent reason.
+//  only way to get it to work is to apparently hit it with --no-stub but then it uses the factory rom which apparently only does 115200 baud.
 
 #define PIR_PIN D3
 
@@ -31,6 +30,7 @@ int wifi_search_chan;
 typedef struct {
    uint32_t fails;
    int wifi_chan;
+   uint8_t masterAddr[6];
 } rtcData;
 
 rtcData *data;
@@ -49,8 +49,10 @@ void OnDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
    xmit_state = XMIT_FINISHED;
 }
 
-void deepSleep() {
-   rtcMemory.save();
+void deepSleep(bool save=true) {
+   if (save) {
+      rtcMemory.save();
+   }
    digitalWrite(LATCH_PIN, LOW);
    ESP.deepSleep(0);  //  man this is some unreliable shit
    ESP.deepSleep(ESP.deepSleepMax());
@@ -59,6 +61,7 @@ void deepSleep() {
 void setup() {
    Serial.begin(115200);
 
+//#define DEBUG
 #ifdef DEBUG
    delay(1000);
    Serial.println();
@@ -82,13 +85,33 @@ void setup() {
       //  ok might need to debug this, but if this isn't firstboot then bail cuz this was a timer wakeup
       pinMode(PIR_PIN, INPUT);
       if (!digitalRead(PIR_PIN)) {
-         deepSleep();  //  remember this automatically saves...
+         deepSleep();  // saves by default
       }
       data = rtcMemory.getData();
    } else {
       data = rtcMemory.getData();
       data->fails = 0;
       data->wifi_chan = -1;
+
+      LittleFS.begin();
+      StaticJsonDocument<256> cfg;
+      File file = LittleFS.open("/config.json", "r");
+      auto error = deserializeJson(cfg, file);
+
+      file.close();
+
+      if (error) {
+         Serial.println("json error");
+         deepSleep(false);  //  what happens when we begin() but never save?  debug later.
+      }
+
+      //  JSON doesn't handle native hex numbers for some shitty esoteric reason.  trash.
+
+      for (int i=0; i<6; i++) {
+         data->masterAddr[i] = (uint8_t) strtoul(cfg["esp-now"]["master"][i], NULL, 16);
+      }
+
+
    }  // "first boot" setup
 
    esp_now_set_self_role(ESP_NOW_ROLE_CONTROLLER);
@@ -98,7 +121,7 @@ void setup() {
 
    //  like loop preload
    wifi_search_chan = data->wifi_chan == -1 ? 1 : data->wifi_chan;
-   if (esp_now_add_peer(masterAddr, ESP_NOW_ROLE_SLAVE, wifi_search_chan, NULL, 0)) {
+   if (esp_now_add_peer(data->masterAddr, ESP_NOW_ROLE_SLAVE, wifi_search_chan, NULL, 0)) {
       Serial.println("error adding peer");
    }
    wifi_set_channel(wifi_search_chan);
@@ -116,7 +139,7 @@ void loop() {
             }  //  message succeeded
             else {
                //  OK so obviously you can only have one peer associated with a channel...  ?
-               if (esp_now_del_peer(masterAddr)) {
+               if (esp_now_del_peer(data->masterAddr)) {
                   Serial.println("error deleting peer");
                }
                wifi_search_chan += 1;
@@ -124,7 +147,7 @@ void loop() {
                   wifi_search_chan = 1;
                } //  halt but do not catch fire?
                wifi_set_channel(wifi_search_chan);
-               if (esp_now_add_peer(masterAddr, ESP_NOW_ROLE_SLAVE, wifi_search_chan, NULL, 0)) {
+               if (esp_now_add_peer(data->masterAddr, ESP_NOW_ROLE_SLAVE, wifi_search_chan, NULL, 0)) {
                   Serial.println("error adding peer");
                }
             }  //  message failed, cycle channel
@@ -159,7 +182,7 @@ void loop() {
             xmit_state = XMIT_STARTED;
             session_tries++;
             digitalWrite(LED_BUILTIN, LOW);
-            esp_now_send(masterAddr, (uint8_t *)&PIR_msg, sizeof(PIR_msg));
+            esp_now_send(data->masterAddr, (uint8_t *)&PIR_msg, sizeof(PIR_msg));
          }
       case XMIT_STARTED:
          delay(100);
