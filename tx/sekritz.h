@@ -1,1 +1,0 @@
-../sekritz.h
