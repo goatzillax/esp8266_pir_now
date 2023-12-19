@@ -89,7 +89,7 @@ String mactoname(uint8_t *mac) {
    return longtoname(i);
 }
 
-StaticJsonDocument<512> sensors;
+StaticJsonDocument<1024> sensors;
 
 //  json file functions from the ESP side:
 //  add newly found sensors to the assoc array
