@@ -286,6 +286,10 @@ void infra_setup() {
          response->print(String((float) history[i].msg.voltage/100));
          response->print(", ");
          response->print(history[i].msg.failberts);
+         response->print(", ");
+         response->print(history[i].msg.temperature);
+         response->print(", ");
+         response->print(history[i].msg.humidity);
          response->print("]");
          if (i != 0) {
             response->print(",\n");

@@ -125,7 +125,9 @@ function addHistory(data) {
       history_block.appendChild(document.createTextNode(" "));
       history_block.appendChild(document.createTextNode(data[i][2] + " "));
       history_block.appendChild(document.createTextNode(data[i][3] + "v "));
-      history_block.appendChild(document.createTextNode(data[i][4] + "\n"));
+      history_block.appendChild(document.createTextNode(data[i][4] + " "));
+      history_block.appendChild(document.createTextNode(parseInt(data[i][5],10)/10 + "C "));
+      history_block.appendChild(document.createTextNode(parseInt(data[i][6],10)/10 + "%\n"));
    }
 }
 
