@@ -4,6 +4,17 @@
 #include <ArduinoJson.h>
 #include "esp8266_pir_now.h"
 
+#define USE_SHT
+#ifdef USE_SHT
+#include <WEMOS_SHT3X.h>
+
+SHT3X sht30(0x45);
+float cTemp;
+float humidity;
+
+#endif
+
+
 //  ESPRESSIF CORE IS STILL DICKED UP BUT YOU CAN FORCE THE CHANNEL WITH WIFI_SET_CHANNEL()
 
 //  by the way, esptool.py under Arduino is broken past 2.5.0 for uploading LittleFS.  Great job guys.  And it fucking changes the baud to 408000 for no apparent reason.
@@ -171,9 +182,23 @@ void loop() {
             PIR_msg.id = 0;  //  actually we have a mac on the RX end so...  this is more like a cmd
             PIR_msg.voltage = (uint16_t)(voltage);
             PIR_msg.failberts = data->fails;
-            PIR_msg.temperature = 10000;  //  bogus value
-            PIR_msg.humidity = 1100;      //  bogus value
-
+#ifdef USE_SHT
+            if (sht30.get()==0) {
+               //Serial.println(String(sht30.cTemp)+"C");
+               //Serial.println(String(sht30.humidity)+"%");
+               PIR_msg.temperature = (int) (sht30.cTemp * 10);
+               PIR_msg.humidity    = (int) (sht30.humidity * 10);
+#ifdef DEBUG
+               Serial.println(String(PIR_msg.temperature/10)+"C");
+               Serial.println(String(PIR_msg.humidity/10)+"%");
+               delay(100);
+#endif
+            } else
+#endif
+            {
+               PIR_msg.temperature = 1000;  //  bogus value
+               PIR_msg.humidity = 11;      //  bogus value
+            }
             if (data->wifi_chan == -1) {
                Serial.print("searching channel ");
                Serial.println(wifi_search_chan);
