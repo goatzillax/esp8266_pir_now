@@ -5,7 +5,7 @@ typedef struct {
    uint16_t	id;
    int16_t	voltage;	//  voltage * 100
    uint32_t	failberts;
-   int16_t	temperature;	//  temperature(c) * 100
+   int16_t	temperature;	//  temperature(c) * 10
    int16_t	humidity;	//  humidity * 10
 } struct_PIR_msg;
 
