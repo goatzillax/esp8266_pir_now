@@ -16,6 +16,8 @@
 #include "esp8266_pir_now.h"
 #include "sekritz.h"
 
+const char compile_date[] = __DATE__ " " __TIME__;
+
 typedef struct {
    uint32_t src;	//  last 3 bytes of MAC
    uint32_t timestamp;	//  seconds since epoch.  pretty sure I don't need more than second resolution
@@ -24,7 +26,7 @@ typedef struct {
 
 struct_log_entry log_entry;
 
-CircularBuffer<struct_log_entry,128> history;
+CircularBuffer<struct_log_entry,256> history;
 
 #define BUZZER_PATTERN_LEN  6
 #define BUZZER_DELAY        1000
@@ -271,6 +273,8 @@ void infra_setup() {
    });
 
    //  hope I has enuf memory for dis...
+   //  actually I wonder if the server code kicks out the buffers as soon as the first print is reached.
+   //  that would be amazeballs
    webserver.on("/history.json", HTTP_GET, [](AsyncWebServerRequest *request) {
       AsyncResponseStream *response = request->beginResponseStream("application/json");
       int i;
@@ -299,6 +303,16 @@ void infra_setup() {
          }
       }
       response->print("]");
+      request->send(response);
+   });
+
+   webserver.on("/debug", HTTP_GET, [](AsyncWebServerRequest *request) {
+      AsyncResponseStream *response = request->beginResponseStream("text/plain");
+      response->print(compile_date);
+      response->print("\n");
+      response->print("heap :");
+      response->print(String(ESP.getFreeHeap()));
+      response->print("\n");
       request->send(response);
    });
 
