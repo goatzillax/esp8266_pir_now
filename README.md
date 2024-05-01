@@ -178,3 +178,26 @@ Viewer doesn't sport binary apparently, nor does it support .gz files.  Neat.  I
 * total weatherproofing and sealing
 * external power input
 * external reset
+
+### RCWL-0516
+
+The RCWL-0516 is a curious animal.
+
+https://github.com/jdesbonnet/RCWL-0516
+
+Notable things:
+
+* Takes 4-28v.  Apparently needs higher, like 5v, to run reliably.
+* Has an internal regulator, probably linear.  3.3v output is limited to 100ma.
+
+So to use this I'd probably bump up to a 2s LiFePO4 battery, which complicates matters.
+
+Easiest thing to do might be to use a step down regulator with an enable to produce 3.3v.
+
+Tie the regulator enable to the output of the RCWL-0516 and also allow the microcontroller to latch it high as long as it needs.  Might be nice to know if Vout was open drain or push-pull.
+
+This saves power by disabling the regulator, however it also means I can't use RTC memory since power is totally shut down.  Which means I need an alternate way to rescan for the ESP-NOW channel.  Maybe a bootstrap gpio with momentary switch.
+
+![wegulator](/docs/wegulator.png)
+
+So the RCWL-0516 triggers Vout and turns on the regulator.  The uC has 2 seconds to boot up and latch the EN for itself.  When it's done, it can deassert EN.
