@@ -16,6 +16,8 @@ float humidity;
 
 #endif
 
+#define ADC_NETWORK (1145+220+100)
+#define ADC_OFFSET -5
 
 //  ESPRESSIF CORE IS STILL DICKED UP BUT YOU CAN FORCE THE CHANNEL WITH WIFI_SET_CHANNEL()
 
@@ -68,7 +70,7 @@ void deepSleep(bool save=true) {
       rtcMemory.save();
    }
    digitalWrite(LATCH_PIN, LOW);
-   ESP.deepSleep(0);  //  man this is some unreliable shit
+   ESP.deepSleep(30*1000000);  //  man this is some unreliable shit
 }
 
 void setup() {
@@ -84,7 +86,7 @@ void setup() {
    //  code:  go back to sleep at 2.9v.
 
    int adcValue = analogRead(A0);
-   uint32_t voltage = adcValue * 367 / 1023;  //  100k resistor divider with (220k + 43k) and some fudge
+   uint32_t voltage = (adcValue * ADC_NETWORK / 1023) + ADC_OFFSET;
 //  old guard was 290
 #ifdef BATTERY_GUARD
    if (voltage < BATTERY_GUARD) {
@@ -203,7 +205,7 @@ void loop() {
       case XMIT_IDLE:
          {
             int adcValue = analogRead(A0);
-            uint32_t voltage = adcValue * 367 / 1023;  //  100k resistor divider with (220k + whatever you add in; usually 43k or 51k) and some fudge
+            uint32_t voltage = (adcValue * ADC_NETWORK / 1023) + ADC_OFFSET;
 
             PIR_msg.id = 0;  //  actually we have a mac on the RX end so...  this is more like a cmd
             PIR_msg.voltage = (uint16_t)(voltage);
