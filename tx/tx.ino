@@ -4,6 +4,8 @@
 #include <ArduinoJson.h>
 #include "esp8266_pir_now.h"
 
+//#define DEBUG
+
 #define USE_SHT
 #ifdef USE_SHT
 #include <WEMOS_SHT3X.h>
@@ -83,9 +85,12 @@ void setup() {
 
    int adcValue = analogRead(A0);
    uint32_t voltage = adcValue * 367 / 1023;  //  100k resistor divider with (220k + 43k) and some fudge
-   if (voltage < 290) {
+//  old guard was 290
+#ifdef BATTERY_GUARD
+   if (voltage < BATTERY_GUARD) {
       deepSleep(false);
    }
+#endif
 
    Serial.begin(115200);
 
@@ -118,7 +123,7 @@ void setup() {
    } else {
       data = rtcMemory.getData();
       data->fails = 0;
-      data->wifi_chan = -1;
+      data->wifi_chan = -1;  // pull this from config.json ... probably.
 
       LittleFS.begin();
       StaticJsonDocument<256> cfg;
@@ -131,6 +136,8 @@ void setup() {
          Serial.println("json error");
          deepSleep(false);  //  what happens when we begin() but never save?  debug later.
       }
+
+      data->wifi_chan = cfg["esp-now"]["channel"];
 
       //  JSON doesn't handle native hex numbers for some shitty esoteric reason.  trash.
 
@@ -148,6 +155,9 @@ void setup() {
 
    //  like loop preload
    wifi_search_chan = data->wifi_chan == -1 ? 1 : data->wifi_chan;
+#ifdef DEBUG
+   Serial.println("wifi chan: " + String(data->wifi_chan));
+#endif
    if (esp_now_add_peer(data->masterAddr, ESP_NOW_ROLE_SLAVE, wifi_search_chan, NULL, 0)) {
       Serial.println("error adding peer");
    }
