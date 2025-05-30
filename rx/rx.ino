@@ -26,7 +26,7 @@ typedef struct {
 
 struct_log_entry log_entry;
 
-CircularBuffer<struct_log_entry,256> history;
+CircularBuffer<struct_log_entry,192> history;
 
 #define BUZZER_PATTERN_LEN  6
 #define BUZZER_DELAY        1000
