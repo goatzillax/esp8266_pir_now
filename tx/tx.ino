@@ -60,19 +60,35 @@ void OnDataSent(uint8_t *mac_addr, uint8_t sendStatus) {
    xmit_state = XMIT_FINISHED;
 }
 
+
 void deepSleep(bool save=true) {
    if (save) {
       rtcMemory.save();
    }
    digitalWrite(LATCH_PIN, LOW);
    ESP.deepSleep(0);  //  man this is some unreliable shit
-   ESP.deepSleep(ESP.deepSleepMax());
 }
 
 void setup() {
+
+   //  todo:  for starters, use a better board with EN pinned out and PIR not on a literal fucking bootstrap pin.
+   //  the very first thing is to look at the voltage.  If it's
+   //  below threshold (say 2.9v) immediately go back to deep sleep.
+   //  there's really not that much energy under 3.0v anyways.
+   //  there should also be a hardware voltage supervisor, but we prefer
+   //  to put ourselves to sleep instead of getting pantsed.  particularly
+   //  if we're in the middle of some flash routine.  totally uncool man.
+   //  lvc:  drops EN at 2.8v.
+   //  code:  go back to sleep at 2.9v.
+
+   int adcValue = analogRead(A0);
+   uint32_t voltage = adcValue * 367 / 1023;  //  100k resistor divider with (220k + 43k) and some fudge
+   if (voltage < 290) {
+      deepSleep(false);
+   }
+
    Serial.begin(115200);
 
-//#define DEBUG
 #ifdef DEBUG
    delay(1000);
    Serial.println();
@@ -93,10 +109,10 @@ void setup() {
    }
 
    if (rtcMemory.begin()) {
-      //  ok might need to debug this, but if this isn't firstboot then bail cuz this was a timer wakeup
+      //  this doesn't work.  D3 is a bootstrap pin so it must be high to even wake up.
       pinMode(PIR_PIN, INPUT);
       if (!digitalRead(PIR_PIN)) {
-         deepSleep();  // saves by default
+         deepSleep(false);
       }
       data = rtcMemory.getData();
    } else {
@@ -122,7 +138,7 @@ void setup() {
          data->masterAddr[i] = (uint8_t) strtoul(cfg["esp-now"]["master"][i], NULL, 16);
       }
 
-
+      file.close();
    }  // "first boot" setup
 
    esp_now_set_self_role(ESP_NOW_ROLE_CONTROLLER);
@@ -146,7 +162,7 @@ void loop() {
          if (data->wifi_chan == -1) {
             if (data->fails == 0) {
                data->wifi_chan = wifi_search_chan;
-               deepSleep();
+               deepSleep();  // defo save the channel
             }  //  message succeeded
             else {
                //  OK so obviously you can only have one peer associated with a channel...  ?
@@ -169,7 +185,7 @@ void loop() {
                delay(random(500,1000));
             }  //  random backoff and retry because deepsleep with timeout seems buggy
             else {
-               deepSleep();
+               deepSleep();  // save failberts
             }
          }  //  not in search mode
          xmit_state = XMIT_IDLE;
@@ -177,7 +193,7 @@ void loop() {
       case XMIT_IDLE:
          {
             int adcValue = analogRead(A0);
-            uint32_t voltage = adcValue * 355 / 1023;  //  100k resistor divider with (220k + 43k) and some fudge
+            uint32_t voltage = adcValue * 367 / 1023;  //  100k resistor divider with (220k + whatever you add in; usually 43k or 51k) and some fudge
 
             PIR_msg.id = 0;  //  actually we have a mac on the RX end so...  this is more like a cmd
             PIR_msg.voltage = (uint16_t)(voltage);
@@ -197,7 +213,7 @@ void loop() {
 #endif
             {
                PIR_msg.temperature = 1000;  //  bogus value
-               PIR_msg.humidity = 11;      //  bogus value
+               PIR_msg.humidity = 1100;     //  bogus value
             }
             if (data->wifi_chan == -1) {
                Serial.print("searching channel ");
